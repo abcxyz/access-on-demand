@@ -19,3 +19,9 @@ jobs:
     uses: 'abcxyz/pkg/.github/workflows/go-lint.yml@main' # ratchet:exclude
     with:
       go_version: '1.20'
+
+  # Unit tests - go
+  go_test:
+    uses: 'abcxyz/pkg/.github/workflows/go-test.yml@main' # ratchet:exclude
+    with:
+      go_version: '1.20'
