@@ -14,20 +14,31 @@
 
 package v1alpha1
 
-import resourcemanager "google.golang.org/api/cloudresourcemanager/v3"
-
 // IamRequest represents a request to update IAM policies.
 type IamRequest struct {
-	// List of ResourcePolicy, each specifies the IAM policy to be added for a
-	// GCP resource.
+	// List of ResourcePolicy, each specifies the IAM principals/members to role
+	// bindings to be added for a GCP resource IAM policy.
 	ResourcePolicies []*ResourcePolicy `json:"policies,omitempty"`
 }
 
-// ResourcePolicy specifies the IAM policy to be added for a GCP resource.
+// ResourcePolicy specifies the IAM principals/members to role bindings to be
+// added for a GCP resource IAM policy.
 type ResourcePolicy struct {
 	// Resource represents one of GCP organization, folder, and project.
 	Resource string `json:"resource,omitempty"`
 
-	// Policy contains a list of IAM members to role bindings.
-	Policy *resourcemanager.Policy `json:"policy,omitempty"`
+	// Bindings contains a list of IAM principals/members to role bindings.
+	Bindings []*Binding `json:"binding,omitempty"`
+}
+
+// Binding associates IAM principals/members with a role.
+type Binding struct {
+	// Members is a list of IAM principals, check
+	// https://cloud.google.com/resource-manager/reference/rest/Shared.Types/Binding
+	// for acceptable values.
+	Members []string `json:"members,omitempty"`
+
+	// Role to be assigned to Members. For example, roles/viewer, roles/editor, or
+	// roles/owner.
+	Role string `json:"role,omitempty"`
 }
