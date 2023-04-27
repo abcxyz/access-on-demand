@@ -14,8 +14,8 @@
 
 package v1alpha1
 
-// IamRequest represents a request to update IAM policies.
-type IamRequest struct {
+// IAMRequest represents a request to update IAM policies.
+type IAMRequest struct {
 	// List of ResourcePolicy, each specifies the IAM principals/members to role
 	// bindings to be added for a GCP resource IAM policy.
 	ResourcePolicies []*ResourcePolicy `json:"policies,omitempty"`
@@ -28,7 +28,7 @@ type ResourcePolicy struct {
 	Resource string `json:"resource,omitempty"`
 
 	// Bindings contains a list of IAM principals/members to role bindings.
-	Bindings []*Binding `json:"binding,omitempty"`
+	Bindings []*Binding `json:"bindings,omitempty"`
 }
 
 // Binding associates IAM principals/members with a role.
