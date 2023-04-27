@@ -18,17 +18,17 @@ package v1alpha1
 type IAMRequest struct {
 	// List of ResourcePolicy, each specifies the IAM principals/members to role
 	// bindings to be added for a GCP resource IAM policy.
-	ResourcePolicies []*ResourcePolicy `json:"policies,omitempty"`
+	ResourcePolicies []*ResourcePolicy `yaml:"policies,omitempty"`
 }
 
 // ResourcePolicy specifies the IAM principals/members to role bindings to be
 // added for a GCP resource IAM policy.
 type ResourcePolicy struct {
 	// Resource represents one of GCP organization, folder, and project.
-	Resource string `json:"resource,omitempty"`
+	Resource string `yaml:"resource,omitempty"`
 
 	// Bindings contains a list of IAM principals/members to role bindings.
-	Bindings []*Binding `json:"bindings,omitempty"`
+	Bindings []*Binding `yaml:"bindings,omitempty"`
 }
 
 // Binding associates IAM principals/members with a role.
@@ -36,9 +36,9 @@ type Binding struct {
 	// Members is a list of IAM principals, check
 	// https://cloud.google.com/resource-manager/reference/rest/Shared.Types/Binding
 	// for acceptable values.
-	Members []string `json:"members,omitempty"`
+	Members []string `yaml:"members,omitempty"`
 
 	// Role to be assigned to Members. For example, roles/viewer, roles/editor, or
 	// roles/owner.
-	Role string `json:"role,omitempty"`
+	Role string `yaml:"role,omitempty"`
 }
