@@ -14,20 +14,15 @@
 
 package v1alpha1
 
-import (
-	"time"
-)
+import "time"
 
 // IAMRequestWrapper wraps the IAMRequest and adds additional fields such as
 // duration.
 type IAMRequestWrapper struct {
 	// Request contains IAM binding information.
-	Request  *IAMRequest
+	Request *IAMRequest
 
 	// Duration feild used as IAM binding condition to specify expiration.
-	// This will not not override role bindings with no conditions.
-	// If a principal is bound to a role, and the role binding does not have a
-	// condition, then the principal always has that role. Adding the principal
-	// to a conditional binding for the same role has no effect.
+	// This will not override role bindings with no conditions.
 	Duration time.Duration
 }

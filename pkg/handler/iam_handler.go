@@ -19,19 +19,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/iam/apiv1/iampb"
-	"cloud.google.com/go/resourcemanager/apiv3"
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/googleapis/gax-go/v2"
 	"github.com/sethvargo/go-retry"
 	"google.golang.org/genproto/googleapis/type/expr"
+
+	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
 
-// Condition tile of IAM bindings added by AOD.
+// Condition title of IAM bindings added by AOD.
 var conditionTitle = "AOD expiration"
 
 // IAMHandler updates IAM policies of GCP organizations, folders, and projects
@@ -111,7 +111,7 @@ func NewIAMHandler(ctx context.Context, opts ...Option) (*IAMHandler, error) {
 	return h, nil
 }
 
-// Do adds additinal IAM bindings to current IAM policy.
+// Do removes expired or duplicative IAM bindings added by AOD and adds requested IAM bindings to current IAM policy.
 func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps []*v1alpha1.IAMResponse, retErr error) {
 	for _, p := range r.Request.ResourcePolicies {
 		np, err := h.handlePolicy(ctx, p, r.Duration)
@@ -128,11 +128,7 @@ func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps
 	return
 }
 
-func (h *IAMHandler) handlePolicy(
-	ctx context.Context,
-	p *v1alpha1.ResourcePolicy,
-	ttl time.Duration) (*v1alpha1.IAMResponse, error) {
-
+func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, ttl time.Duration) (*v1alpha1.IAMResponse, error) {
 	var iamC iamClient
 	switch strings.Split(p.Resource, "/")[0] {
 	case "organizations":
@@ -177,9 +173,8 @@ func (h *IAMHandler) handlePolicy(
 
 // Remove expired bindings and add or update new bindings with expiration condition.
 func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
-
 	// Clean up current policy.
-	copy := make([]*iampb.Binding, 0, len(p.Bindings))
+	removed := make([]*iampb.Binding, 0, len(p.Bindings))
 	for _, cb := range p.Bindings {
 		// Only clean up AOD bindings.
 		// TODO (#6): Remove expired bindings.
@@ -189,7 +184,7 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 			for _, nb := range bs {
 				if cb.Role == nb.Role {
 					for _, m := range cb.Members {
-						if !slices.Contains(nb.Members, m) {
+						if !contains(nb.Members, m) {
 							ms = append(ms, m)
 						}
 					}
@@ -198,13 +193,13 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 			// Copy the bindings with de-dupped members.
 			if len(ms) != 0 {
 				cb.Members = ms
-				copy = append(copy, cb)
+				removed = append(removed, cb)
 			}
 		} else {
-			copy = append(copy, cb)
+			removed = append(removed, cb)
 		}
 	}
-	p.Bindings = copy
+	p.Bindings = removed
 
 	// Add new bindings with expiration condition.
 	t := time.Now().Add(ttl).Format(time.RFC3339)
@@ -219,7 +214,15 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 		}
 		p.Bindings = append(p.Bindings, newBindings)
 	}
-	return
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
 
 // Cleanup handles the graceful shutdown of the resource manager clients.
