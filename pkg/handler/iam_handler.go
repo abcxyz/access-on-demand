@@ -27,8 +27,6 @@ import (
 	"github.com/googleapis/gax-go/v2"
 	"github.com/sethvargo/go-retry"
 	"google.golang.org/genproto/googleapis/type/expr"
-
-	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
 
 // ConditionTitle of IAM bindings added by AOD.
@@ -37,17 +35,17 @@ var ConditionTitle = "abcxyz-aod-expiry"
 // IAMHandler updates IAM policies of GCP organizations, folders, and projects
 // based on the IAM request received.
 type IAMHandler struct {
-	organizationsClient *resourcemanager.OrganizationsClient
-	foldersClient       *resourcemanager.FoldersClient
-	projectsClient      *resourcemanager.ProjectsClient
+	organizationsClient IAMClient
+	foldersClient       IAMClient
+	projectsClient      IAMClient
 	// Optional retry backoff strategy, default is 5 attempts with fibonacci
 	// backoff that starts at 500ms.
 	retry retry.Backoff
 }
 
-// Internal iamClient interface that get and set IAM policies for GCP
+// Internal IAMClient interface that get and set IAM policies for GCP
 // organizations, folders, and projects.
-type iamClient interface {
+type IAMClient interface {
 	GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest, ...gax.CallOption) (*iampb.Policy, error)
 	SetIamPolicy(context.Context, *iampb.SetIamPolicyRequest, ...gax.CallOption) (*iampb.Policy, error)
 }
@@ -64,7 +62,7 @@ func WithRetry(b retry.Backoff) Option {
 }
 
 // NewIAMHandler creates a new IAMHandler with provided clients and options.
-func NewIAMHandler(ctx context.Context, o *resourcemanager.OrganizationsClient, f *resourcemanager.FoldersClient, p *resourcemanager.ProjectsClient, opts ...Option) (*IAMHandler, error) {
+func NewIAMHandler(ctx context.Context, organizationsClient, foldersClient, projectsClient IAMClient, opts ...Option) (*IAMHandler, error) {
 	h := &IAMHandler{}
 	for _, opt := range opts {
 		var err error
@@ -73,9 +71,9 @@ func NewIAMHandler(ctx context.Context, o *resourcemanager.OrganizationsClient, 
 			return nil, fmt.Errorf("failed to apply client options: %w", err)
 		}
 	}
-	h.organizationsClient = o
-	h.foldersClient = f
-	h.projectsClient = p
+	h.organizationsClient = organizationsClient
+	h.foldersClient = foldersClient
+	h.projectsClient = projectsClient
 
 	if h.retry == nil {
 		h.retry = retry.WithMaxRetries(5, retry.NewFibonacci(500*time.Millisecond))
@@ -101,7 +99,7 @@ func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps
 }
 
 func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, ttl time.Duration) (*v1alpha1.IAMResponse, error) {
-	var iamC iamClient
+	var iamC IAMClient
 	switch strings.Split(p.Resource, "/")[0] {
 	case "organizations":
 		iamC = h.organizationsClient
@@ -110,15 +108,13 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 	case "projects":
 		iamC = h.projectsClient
 	default:
-		return nil, fmt.Errorf("unable to match none of the organizations, folders, projects resource")
+		return nil, fmt.Errorf("resource isn't one of [organizations, folders, projects]")
 	}
 
 	var np *iampb.Policy
 	if err := retry.Do(ctx, h.retry, func(ctx context.Context) error {
 		// Get current IAM policy.
-		cp, err := iamC.GetIamPolicy(
-			ctx,
-			&iampb.GetIamPolicyRequest{Resource: p.Resource})
+		cp, err := iamC.GetIamPolicy(ctx, &iampb.GetIamPolicyRequest{Resource: p.Resource})
 		if err != nil {
 			return fmt.Errorf("failed to get IAM policy: %w", err)
 		}
@@ -148,7 +144,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 // Remove expired bindings and add or update new bindings with expiration condition.
 func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 	// Convert new bindings to a role to bindings map.
-	bsMap := convert(bs)
+	bsMap := toBindingsMap(bs)
 	// Clean up current policy bindings.
 	var result []*iampb.Binding
 	for _, cb := range p.Bindings {
@@ -181,7 +177,7 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 	}
 }
 
-func convert(bs []*v1alpha1.Binding) map[string][]string {
+func toBindingsMap(bs []*v1alpha1.Binding) map[string][]string {
 	m := make(map[string][]string)
 	for _, b := range bs {
 		m[b.Role] = removeCommonValues(m[b.Role], b.Members)
@@ -193,16 +189,13 @@ func convert(bs []*v1alpha1.Binding) map[string][]string {
 // Returns a result list of strings in l1 that are not found in l2.
 func removeCommonValues(l1, l2 []string) []string {
 	var result []string
-	for _, e1 := range l1 {
-		var contains bool
-		for _, e2 := range l2 {
-			if e1 == e2 {
-				contains = true
-				break
-			}
-		}
-		if !contains {
-			result = append(result, e1)
+	set := make(map[string]struct{})
+	for _, e := range l2 {
+		set[e] = struct{}{}
+	}
+	for _, e := range l1 {
+		if _, contains := set[e]; !contains {
+			result = append(result, e)
 		}
 	}
 	return result

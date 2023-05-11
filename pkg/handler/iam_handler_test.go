@@ -37,21 +37,22 @@ import (
 func TestDo(t *testing.T) {
 	t.Parallel()
 
+	now := time.Now().UTC()
 	cases := []struct {
-		name               string
-		orgsServer         *fakeOrgsServer
-		foldersServer      *fakeFoldersServer
-		projectsServer     *fakeProjectsServer
-		request            *v1alpha1.IAMRequestWrapper
-		wantPolicies       []*v1alpha1.IAMResponse
-		wantErrSubstr      string
-		wantOrgsPolicy     *iampb.Policy
-		wantFoldersPolicy  *iampb.Policy
-		wantProjectsPolicy *iampb.Policy
+		name                    string
+		organizationsServer     *fakeOrganizationsServer
+		foldersServer           *fakeFoldersServer
+		projectsServer          *fakeProjectsServer
+		request                 *v1alpha1.IAMRequestWrapper
+		wantPolicies            []*v1alpha1.IAMResponse
+		wantErrSubstr           string
+		wantOrganizationsPolicy *iampb.Policy
+		wantFoldersPolicy       *iampb.Policy
+		wantProjectsPolicy      *iampb.Policy
 	}{
 		{
 			name: "success",
-			orgsServer: &fakeOrgsServer{
+			organizationsServer: &fakeOrganizationsServer{
 				policy: &iampb.Policy{
 					Bindings: []*iampb.Binding{
 						// Non-AOD bindings.
@@ -69,7 +70,7 @@ func TestDo(t *testing.T) {
 							Role: "roles/accessapproval.approver",
 							Condition: &expr.Expr{
 								Title:      ConditionTitle,
-								Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 							},
 						},
 						// Unexpired bindings to be de-dupped.
@@ -81,7 +82,7 @@ func TestDo(t *testing.T) {
 							Role: "roles/accessapproval.approver",
 							Condition: &expr.Expr{
 								Title:      ConditionTitle,
-								Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 							},
 						},
 					},
@@ -152,7 +153,7 @@ func TestDo(t *testing.T) {
 								Role: "roles/accessapproval.approver",
 								Condition: &expr.Expr{
 									Title:      ConditionTitle,
-									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 								},
 							},
 							{
@@ -163,7 +164,7 @@ func TestDo(t *testing.T) {
 								Role: "roles/accessapproval.approver",
 								Condition: &expr.Expr{
 									Title:      ConditionTitle,
-									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
 						},
@@ -180,7 +181,7 @@ func TestDo(t *testing.T) {
 								Role: "roles/cloudkms.cryptoOperator",
 								Condition: &expr.Expr{
 									Title:      ConditionTitle,
-									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
 						},
@@ -197,14 +198,14 @@ func TestDo(t *testing.T) {
 								Role: "roles/bigquery.dataViewer",
 								Condition: &expr.Expr{
 									Title:      ConditionTitle,
-									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
 						},
 					},
 				},
 			},
-			wantOrgsPolicy: &iampb.Policy{
+			wantOrganizationsPolicy: &iampb.Policy{
 				Bindings: []*iampb.Binding{
 					{
 						Members: []string{
@@ -219,7 +220,7 @@ func TestDo(t *testing.T) {
 						Role: "roles/accessapproval.approver",
 						Condition: &expr.Expr{
 							Title:      ConditionTitle,
-							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 						},
 					},
 					{
@@ -230,7 +231,7 @@ func TestDo(t *testing.T) {
 						Role: "roles/accessapproval.approver",
 						Condition: &expr.Expr{
 							Title:      ConditionTitle,
-							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
 				},
@@ -244,7 +245,7 @@ func TestDo(t *testing.T) {
 						Role: "roles/cloudkms.cryptoOperator",
 						Condition: &expr.Expr{
 							Title:      ConditionTitle,
-							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
 				},
@@ -258,7 +259,7 @@ func TestDo(t *testing.T) {
 						Role: "roles/bigquery.dataViewer",
 						Condition: &expr.Expr{
 							Title:      ConditionTitle,
-							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
 				},
@@ -266,7 +267,7 @@ func TestDo(t *testing.T) {
 		},
 		{
 			name: "failed_with_orgs_server_get_iam_policy_error",
-			orgsServer: &fakeOrgsServer{
+			organizationsServer: &fakeOrganizationsServer{
 				policy:          &iampb.Policy{},
 				getIAMPolicyErr: fmt.Errorf("Get IAM policy encountered error: Internal Server Error"),
 			},
@@ -318,16 +319,16 @@ func TestDo(t *testing.T) {
 								Role: "roles/bigquery.dataViewer",
 								Condition: &expr.Expr{
 									Title:      ConditionTitle,
-									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
 						},
 					},
 				},
 			},
-			wantErrSubstr:     "Get IAM policy encountered error: Internal Server Error",
-			wantOrgsPolicy:    &iampb.Policy{},
-			wantFoldersPolicy: &iampb.Policy{},
+			wantErrSubstr:           "Get IAM policy encountered error: Internal Server Error",
+			wantOrganizationsPolicy: &iampb.Policy{},
+			wantFoldersPolicy:       &iampb.Policy{},
 			wantProjectsPolicy: &iampb.Policy{
 				Bindings: []*iampb.Binding{
 					{
@@ -337,7 +338,7 @@ func TestDo(t *testing.T) {
 						Role: "roles/bigquery.dataViewer",
 						Condition: &expr.Expr{
 							Title:      ConditionTitle,
-							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
 				},
@@ -345,7 +346,7 @@ func TestDo(t *testing.T) {
 		},
 		{
 			name: "failed_with_projects_server_set_iam_policy_error",
-			orgsServer: &fakeOrgsServer{
+			organizationsServer: &fakeOrganizationsServer{
 				policy: &iampb.Policy{},
 			},
 			foldersServer: &fakeFoldersServer{
@@ -396,15 +397,15 @@ func TestDo(t *testing.T) {
 								Role: "roles/cloudkms.cryptoOperator",
 								Condition: &expr.Expr{
 									Title:      ConditionTitle,
-									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 								},
 							},
 						},
 					},
 				},
 			},
-			wantErrSubstr:  "Set IAM policy encountered error: Internal Server Error",
-			wantOrgsPolicy: &iampb.Policy{},
+			wantErrSubstr:           "Set IAM policy encountered error: Internal Server Error",
+			wantOrganizationsPolicy: &iampb.Policy{},
 			wantFoldersPolicy: &iampb.Policy{
 				Bindings: []*iampb.Binding{
 					{
@@ -414,7 +415,7 @@ func TestDo(t *testing.T) {
 						Role: "roles/cloudkms.cryptoOperator",
 						Condition: &expr.Expr{
 							Title:      ConditionTitle,
-							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 						},
 					},
 				},
@@ -432,38 +433,32 @@ func TestDo(t *testing.T) {
 			ctx := context.Background()
 
 			// Setup fake servers.
-			addrOrg, connOrg := testutil.FakeGRPCServer(t, func(s *grpc.Server) {
-				resourcemanagerpb.RegisterOrganizationsServer(s, tc.orgsServer)
-			})
-			defer connOrg.Close()
-			addrFol, connFol := testutil.FakeGRPCServer(t, func(s *grpc.Server) {
+			addr, conn := testutil.FakeGRPCServer(t, func(s *grpc.Server) {
+				resourcemanagerpb.RegisterOrganizationsServer(s, tc.organizationsServer)
 				resourcemanagerpb.RegisterFoldersServer(s, tc.foldersServer)
-			})
-			defer connFol.Close()
-			addrPro, connPro := testutil.FakeGRPCServer(t, func(s *grpc.Server) {
 				resourcemanagerpb.RegisterProjectsServer(s, tc.projectsServer)
 			})
-			defer connPro.Close()
+			defer conn.Close()
 
 			// Setup fake clients.
-			fakeOrgClient, err := resourcemanager.NewOrganizationsClient(ctx, option.WithGRPCConn(connOrg))
+			fakeOrganizationsClient, err := resourcemanager.NewOrganizationsClient(ctx, option.WithGRPCConn(conn))
 			if err != nil {
-				t.Fatalf("creating client for fake at %q: %v", addrOrg, err)
+				t.Fatalf("creating client for fake at %q: %v", addr, err)
 			}
-			fakeFolClient, err := resourcemanager.NewFoldersClient(ctx, option.WithGRPCConn(connFol))
+			fakeFoldersClient, err := resourcemanager.NewFoldersClient(ctx, option.WithGRPCConn(conn))
 			if err != nil {
-				t.Fatalf("creating client for fake at %q: %v", addrFol, err)
+				t.Fatalf("creating client for fake at %q: %v", addr, err)
 			}
-			fakeProClient, err := resourcemanager.NewProjectsClient(ctx, option.WithGRPCConn(connPro))
+			fakeProjectsClient, err := resourcemanager.NewProjectsClient(ctx, option.WithGRPCConn(conn))
 			if err != nil {
-				t.Fatalf("creating client for fake at %q: %v", addrPro, err)
+				t.Fatalf("creating client for fake at %q: %v", addr, err)
 			}
 
 			h, err := NewIAMHandler(
 				ctx,
-				fakeOrgClient,
-				fakeFolClient,
-				fakeProClient,
+				fakeOrganizationsClient,
+				fakeFoldersClient,
+				fakeProjectsClient,
 				WithRetry(retry.WithMaxRetries(0, retry.NewFibonacci(500*time.Millisecond))),
 			)
 			if err != nil {
@@ -480,7 +475,7 @@ func TestDo(t *testing.T) {
 				t.Errorf("Process(%+v) got diff (-want, +got): %v", tc.name, diff)
 			}
 
-			if diff := cmp.Diff(tc.wantOrgsPolicy, tc.orgsServer.policy, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.wantOrganizationsPolicy, tc.organizationsServer.policy, protocmp.Transform()); diff != "" {
 				t.Errorf("Process(%+v) got org policy diff (-want, +got): %v", tc.name, diff)
 			}
 
@@ -495,7 +490,7 @@ func TestDo(t *testing.T) {
 	}
 }
 
-type fakeOrgsServer struct {
+type fakeOrganizationsServer struct {
 	resourcemanagerpb.UnimplementedOrganizationsServer
 
 	policy          *iampb.Policy
@@ -503,14 +498,14 @@ type fakeOrgsServer struct {
 	setIAMPolicyErr error
 }
 
-func (s *fakeOrgsServer) GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
+func (s *fakeOrganizationsServer) GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
 	if s.getIAMPolicyErr != nil {
 		return nil, s.getIAMPolicyErr
 	}
 	return s.policy, s.getIAMPolicyErr
 }
 
-func (s *fakeOrgsServer) SetIamPolicy(c context.Context, r *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
+func (s *fakeOrganizationsServer) SetIamPolicy(c context.Context, r *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
 	if s.setIAMPolicyErr != nil {
 		return nil, s.setIAMPolicyErr
 	}
