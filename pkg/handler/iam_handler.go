@@ -43,8 +43,8 @@ type IAMHandler struct {
 	retry retry.Backoff
 }
 
-// Internal IAMClient interface that get and set IAM policies for GCP
-// organizations, folders, and projects.
+// IAMClient is the interface to get and set IAM policies for GCP organizations,
+// folders, and projects.
 type IAMClient interface {
 	GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest, ...gax.CallOption) (*iampb.Policy, error)
 	SetIamPolicy(context.Context, *iampb.SetIamPolicyRequest, ...gax.CallOption) (*iampb.Policy, error)

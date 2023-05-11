@@ -40,9 +40,9 @@ func TestDo(t *testing.T) {
 	now := time.Now().UTC()
 	cases := []struct {
 		name                    string
-		organizationsServer     *fakeOrganizationsServer
-		foldersServer           *fakeFoldersServer
-		projectsServer          *fakeProjectsServer
+		organizationsServer     *fakeServer
+		foldersServer           *fakeServer
+		projectsServer          *fakeServer
 		request                 *v1alpha1.IAMRequestWrapper
 		wantPolicies            []*v1alpha1.IAMResponse
 		wantErrSubstr           string
@@ -52,7 +52,7 @@ func TestDo(t *testing.T) {
 	}{
 		{
 			name: "success",
-			organizationsServer: &fakeOrganizationsServer{
+			organizationsServer: &fakeServer{
 				policy: &iampb.Policy{
 					Bindings: []*iampb.Binding{
 						// Non-AOD bindings.
@@ -88,10 +88,10 @@ func TestDo(t *testing.T) {
 					},
 				},
 			},
-			foldersServer: &fakeFoldersServer{
+			foldersServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
-			projectsServer: &fakeProjectsServer{
+			projectsServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
 			request: &v1alpha1.IAMRequestWrapper{
@@ -274,14 +274,14 @@ func TestDo(t *testing.T) {
 		},
 		{
 			name: "failed_with_orgs_server_get_iam_policy_error",
-			organizationsServer: &fakeOrganizationsServer{
+			organizationsServer: &fakeServer{
 				policy:          &iampb.Policy{},
 				getIAMPolicyErr: fmt.Errorf("Get IAM policy encountered error: Internal Server Error"),
 			},
-			foldersServer: &fakeFoldersServer{
+			foldersServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
-			projectsServer: &fakeProjectsServer{
+			projectsServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
 			request: &v1alpha1.IAMRequestWrapper{
@@ -353,13 +353,13 @@ func TestDo(t *testing.T) {
 		},
 		{
 			name: "failed_with_projects_server_set_iam_policy_error",
-			organizationsServer: &fakeOrganizationsServer{
+			organizationsServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
-			foldersServer: &fakeFoldersServer{
+			foldersServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
-			projectsServer: &fakeProjectsServer{
+			projectsServer: &fakeServer{
 				policy:          &iampb.Policy{},
 				setIAMPolicyErr: fmt.Errorf("Set IAM policy encountered error: Internal Server Error"),
 			},
@@ -439,28 +439,13 @@ func TestDo(t *testing.T) {
 
 			ctx := context.Background()
 
-			// Setup fake servers.
-			addr, conn := testutil.FakeGRPCServer(t, func(s *grpc.Server) {
-				resourcemanagerpb.RegisterOrganizationsServer(s, tc.organizationsServer)
-				resourcemanagerpb.RegisterFoldersServer(s, tc.foldersServer)
-				resourcemanagerpb.RegisterProjectsServer(s, tc.projectsServer)
-			})
-			defer conn.Close()
-
-			// Setup fake clients.
-			fakeOrganizationsClient, err := resourcemanager.NewOrganizationsClient(ctx, option.WithGRPCConn(conn))
-			if err != nil {
-				t.Fatalf("creating client for fake at %q: %v", addr, err)
-			}
-			fakeFoldersClient, err := resourcemanager.NewFoldersClient(ctx, option.WithGRPCConn(conn))
-			if err != nil {
-				t.Fatalf("creating client for fake at %q: %v", addr, err)
-			}
-			fakeProjectsClient, err := resourcemanager.NewProjectsClient(ctx, option.WithGRPCConn(conn))
-			if err != nil {
-				t.Fatalf("creating client for fake at %q: %v", addr, err)
-			}
-
+			fakeOrganizationsClient, fakeFoldersClient, fakeProjectsClient := setupFakeClients(
+				t,
+				ctx,
+				tc.organizationsServer,
+				tc.foldersServer,
+				tc.projectsServer,
+			)
 			h, err := NewIAMHandler(
 				ctx,
 				fakeOrganizationsClient,
@@ -497,53 +482,29 @@ func TestDo(t *testing.T) {
 	}
 }
 
-type fakeOrganizationsServer struct {
-	resourcemanagerpb.UnimplementedOrganizationsServer
+func setupFakeClients(t *testing.T, ctx context.Context, s1, s2, s3 *fakeServer) (c1, c2, c3 IAMClient) {
+	t.Helper()
 
-	policy          *iampb.Policy
-	getIAMPolicyErr error
-	setIAMPolicyErr error
-}
-
-func (s *fakeOrganizationsServer) GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
-	if s.getIAMPolicyErr != nil {
-		return nil, s.getIAMPolicyErr
+	ss := []*fakeServer{s1, s2, s3}
+	cs := make([]IAMClient, 3)
+	for i, e := range ss {
+		// Setup fake servers.
+		addr, conn := testutil.FakeGRPCServer(t, func(s *grpc.Server) {
+			// Use ProjectsServer since it has the same APIs we need.
+			resourcemanagerpb.RegisterProjectsServer(s, e)
+		})
+		// Use ProjectsClient since it has the same APIs we need.
+		fakeClient, err := resourcemanager.NewProjectsClient(ctx, option.WithGRPCConn(conn))
+		if err != nil {
+			t.Fatalf("creating client for fake at %q: %v", addr, err)
+		}
+		cs[i] = fakeClient
 	}
-	return s.policy, s.getIAMPolicyErr
+	return cs[0], cs[1], cs[2]
 }
 
-func (s *fakeOrganizationsServer) SetIamPolicy(c context.Context, r *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
-	if s.setIAMPolicyErr != nil {
-		return nil, s.setIAMPolicyErr
-	}
-	s.policy = r.Policy
-	return s.policy, s.setIAMPolicyErr
-}
-
-type fakeFoldersServer struct {
-	resourcemanagerpb.UnimplementedFoldersServer
-
-	policy          *iampb.Policy
-	getIAMPolicyErr error
-	setIAMPolicyErr error
-}
-
-func (s *fakeFoldersServer) GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
-	if s.getIAMPolicyErr != nil {
-		return nil, s.getIAMPolicyErr
-	}
-	return s.policy, s.getIAMPolicyErr
-}
-
-func (s *fakeFoldersServer) SetIamPolicy(c context.Context, r *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
-	if s.setIAMPolicyErr != nil {
-		return nil, s.setIAMPolicyErr
-	}
-	s.policy = r.Policy
-	return s.policy, s.setIAMPolicyErr
-}
-
-type fakeProjectsServer struct {
+type fakeServer struct {
+	// Use ProjectsServer since it has the same APIs we need.
 	resourcemanagerpb.UnimplementedProjectsServer
 
 	policy          *iampb.Policy
@@ -551,14 +512,14 @@ type fakeProjectsServer struct {
 	setIAMPolicyErr error
 }
 
-func (s *fakeProjectsServer) GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
+func (s *fakeServer) GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
 	if s.getIAMPolicyErr != nil {
 		return nil, s.getIAMPolicyErr
 	}
 	return s.policy, s.getIAMPolicyErr
 }
 
-func (s *fakeProjectsServer) SetIamPolicy(c context.Context, r *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
+func (s *fakeServer) SetIamPolicy(c context.Context, r *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
 	if s.setIAMPolicyErr != nil {
 		return nil, s.setIAMPolicyErr
 	}
