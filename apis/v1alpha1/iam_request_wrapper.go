@@ -19,8 +19,8 @@ import "time"
 // IAMRequestWrapper wraps the IAMRequest and adds additional fields such as
 // duration.
 type IAMRequestWrapper struct {
-	// Request contains IAM binding information.
-	Request *IAMRequest
+	// IAMRequest contains IAM binding information.
+	*IAMRequest
 
 	// Duration feild used as IAM binding condition to specify expiration.
 	// This will not override role bindings with no conditions.

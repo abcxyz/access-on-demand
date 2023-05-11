@@ -31,8 +31,8 @@ import (
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
 
-// Condition title of IAM bindings added by AOD.
-var conditionTitle = "AOD expiration"
+// ConditionTitle of IAM bindings added by AOD.
+var ConditionTitle = "abcxyz-aod-expiry"
 
 // IAMHandler updates IAM policies of GCP organizations, folders, and projects
 // based on the IAM request received.
@@ -40,6 +40,9 @@ type IAMHandler struct {
 	organizationsClient *resourcemanager.OrganizationsClient
 	foldersClient       *resourcemanager.FoldersClient
 	projectsClient      *resourcemanager.ProjectsClient
+	// Optional retry backoff strategy, default is 5 attempts with fibonacci
+	// backoff that starts at 500ms.
+	retry retry.Backoff
 }
 
 // Internal iamClient interface that get and set IAM policies for GCP
@@ -52,32 +55,16 @@ type iamClient interface {
 // Option is the option to set up an IAMHandler.
 type Option func(h *IAMHandler) (*IAMHandler, error)
 
-// WithOrganizationsClient provides a organizations client to the handler.
-func WithOrganizationsClient(client *resourcemanager.OrganizationsClient) Option {
+// WithRetry provides retry strategy to the handler.
+func WithRetry(b retry.Backoff) Option {
 	return func(p *IAMHandler) (*IAMHandler, error) {
-		p.organizationsClient = client
+		p.retry = b
 		return p, nil
 	}
 }
 
-// WithFoldersClient provides a folders client to the handler.
-func WithFoldersClient(client *resourcemanager.FoldersClient) Option {
-	return func(p *IAMHandler) (*IAMHandler, error) {
-		p.foldersClient = client
-		return p, nil
-	}
-}
-
-// WithProjectsClient provides a projects client to the handler.
-func WithProjectsClient(client *resourcemanager.ProjectsClient) Option {
-	return func(p *IAMHandler) (*IAMHandler, error) {
-		p.projectsClient = client
-		return p, nil
-	}
-}
-
-// NewIAMHandler creates a new IAMHandler with the given options.
-func NewIAMHandler(ctx context.Context, opts ...Option) (*IAMHandler, error) {
+// NewIAMHandler creates a new IAMHandler with provided clients and options.
+func NewIAMHandler(ctx context.Context, o *resourcemanager.OrganizationsClient, f *resourcemanager.FoldersClient, p *resourcemanager.ProjectsClient, opts ...Option) (*IAMHandler, error) {
 	h := &IAMHandler{}
 	for _, opt := range opts {
 		var err error
@@ -86,34 +73,19 @@ func NewIAMHandler(ctx context.Context, opts ...Option) (*IAMHandler, error) {
 			return nil, fmt.Errorf("failed to apply client options: %w", err)
 		}
 	}
+	h.organizationsClient = o
+	h.foldersClient = f
+	h.projectsClient = p
 
-	if h.organizationsClient == nil {
-		client, err := resourcemanager.NewOrganizationsClient(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create the organizations client: %w", err)
-		}
-		h.organizationsClient = client
-	}
-	if h.foldersClient == nil {
-		client, err := resourcemanager.NewFoldersClient(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create the folders client: %w", err)
-		}
-		h.foldersClient = client
-	}
-	if h.projectsClient == nil {
-		client, err := resourcemanager.NewProjectsClient(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create the projects client: %w", err)
-		}
-		h.projectsClient = client
+	if h.retry == nil {
+		h.retry = retry.WithMaxRetries(5, retry.NewFibonacci(500*time.Millisecond))
 	}
 	return h, nil
 }
 
 // Do removes expired or duplicative IAM bindings added by AOD and adds requested IAM bindings to current IAM policy.
 func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps []*v1alpha1.IAMResponse, retErr error) {
-	for _, p := range r.Request.ResourcePolicies {
+	for _, p := range r.ResourcePolicies {
 		np, err := h.handlePolicy(ctx, p, r.Duration)
 		if err != nil {
 			retErr = errors.Join(
@@ -137,11 +109,12 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 		iamC = h.foldersClient
 	case "projects":
 		iamC = h.projectsClient
+	default:
+		return nil, fmt.Errorf("unable to match none of the organizations, folders, projects resource")
 	}
 
 	var np *iampb.Policy
-	b := retry.WithMaxRetries(5, retry.NewFibonacci(500*time.Millisecond))
-	if err := retry.Do(ctx, b, func(ctx context.Context) error {
+	if err := retry.Do(ctx, h.retry, func(ctx context.Context) error {
 		// Get current IAM policy.
 		cp, err := iamC.GetIamPolicy(
 			ctx,
@@ -160,6 +133,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 		}
 		np, err = iamC.SetIamPolicy(ctx, setIamPolicyRequest)
 		// Retry when set IAM policy fail.
+		// TODO(#8): Look for specific errors to retry.
 		if err != nil {
 			return retry.RetryableError(fmt.Errorf("failed to set IAM policy: %w, retrying", err))
 		}
@@ -173,70 +147,63 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 
 // Remove expired bindings and add or update new bindings with expiration condition.
 func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
-	// Clean up current policy.
-	removed := make([]*iampb.Binding, 0, len(p.Bindings))
+	// Convert new bindings to a role to bindings map.
+	bsMap := convert(bs)
+	// Clean up current policy bindings.
+	var result []*iampb.Binding
 	for _, cb := range p.Bindings {
-		// Only clean up AOD bindings.
+		// Skip non-AOD bindings.
+		if cb.Condition == nil || cb.Condition.Title != ConditionTitle {
+			result = append(result, cb)
+			continue
+		}
 		// TODO (#6): Remove expired bindings.
-		if cb.Condition != nil && cb.Condition.Title == conditionTitle {
-			// Exclude duplicative Members from current bindings.
-			ms := make([]string, 0, len(cb.Members))
-			for _, nb := range bs {
-				if cb.Role == nb.Role {
-					for _, m := range cb.Members {
-						if !contains(nb.Members, m) {
-							ms = append(ms, m)
-						}
-					}
-				}
-			}
-			// Copy the bindings with de-dupped members.
-			if len(ms) != 0 {
-				cb.Members = ms
-				removed = append(removed, cb)
-			}
-		} else {
-			removed = append(removed, cb)
+		// Exclude duplicative Members from current bindings.
+		cb.Members = removeCommonValues(cb.Members, bsMap[cb.Role])
+		if len(cb.Members) > 0 {
+			result = append(result, cb)
 		}
 	}
-	p.Bindings = removed
+	p.Bindings = result
 
 	// Add new bindings with expiration condition.
-	t := time.Now().Add(ttl).Format(time.RFC3339)
+	t := time.Now().UTC().Add(ttl).Format(time.RFC3339)
 	for _, b := range bs {
-		newBindings := &iampb.Binding{
+		newBinding := &iampb.Binding{
 			Condition: &expr.Expr{
-				Title:      conditionTitle,
+				Title:      ConditionTitle,
 				Expression: fmt.Sprintf("request.time < timestamp('%s')", t),
 			},
 			Members: b.Members,
 			Role:    b.Role,
 		}
-		p.Bindings = append(p.Bindings, newBindings)
+		p.Bindings = append(p.Bindings, newBinding)
 	}
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
+func convert(bs []*v1alpha1.Binding) map[string][]string {
+	m := make(map[string][]string)
+	for _, b := range bs {
+		m[b.Role] = removeCommonValues(m[b.Role], b.Members)
+		m[b.Role] = append(m[b.Role], b.Members...)
+	}
+	return m
+}
+
+// Returns a result list of strings in l1 that are not found in l2.
+func removeCommonValues(l1, l2 []string) []string {
+	var result []string
+	for _, e1 := range l1 {
+		var contains bool
+		for _, e2 := range l2 {
+			if e1 == e2 {
+				contains = true
+				break
+			}
+		}
+		if !contains {
+			result = append(result, e1)
 		}
 	}
-	return false
-}
-
-// Cleanup handles the graceful shutdown of the resource manager clients.
-func (h *IAMHandler) Cleanup() (retErr error) {
-	if err := h.organizationsClient.Close(); err != nil {
-		retErr = errors.Join(retErr, fmt.Errorf("failed to close organizations client: %w", err))
-	}
-
-	if err := h.foldersClient.Close(); err != nil {
-		retErr = errors.Join(retErr, fmt.Errorf("failed to close folders client: %w", err))
-	}
-
-	if err := h.projectsClient.Close(); err != nil {
-		retErr = errors.Join(retErr, fmt.Errorf("failed to close projects client: %w", err))
-	}
-	return
+	return result
 }

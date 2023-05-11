@@ -27,6 +27,7 @@ import (
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
+	"github.com/sethvargo/go-retry"
 	"google.golang.org/api/option"
 	"google.golang.org/genproto/googleapis/type/expr"
 	"google.golang.org/grpc"
@@ -37,13 +38,16 @@ func TestDo(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name           string
-		orgsServer     *fakeOrgsServer
-		foldersServer  *fakeFoldersServer
-		projectsServer *fakeProjectsServer
-		request        *v1alpha1.IAMRequestWrapper
-		wantPolicies   []*v1alpha1.IAMResponse
-		wantErrSubstr  string
+		name               string
+		orgsServer         *fakeOrgsServer
+		foldersServer      *fakeFoldersServer
+		projectsServer     *fakeProjectsServer
+		request            *v1alpha1.IAMRequestWrapper
+		wantPolicies       []*v1alpha1.IAMResponse
+		wantErrSubstr      string
+		wantOrgsPolicy     *iampb.Policy
+		wantFoldersPolicy  *iampb.Policy
+		wantProjectsPolicy *iampb.Policy
 	}{
 		{
 			name: "success",
@@ -64,7 +68,7 @@ func TestDo(t *testing.T) {
 							},
 							Role: "roles/accessapproval.approver",
 							Condition: &expr.Expr{
-								Title:      conditionTitle,
+								Title:      ConditionTitle,
 								Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
 							},
 						},
@@ -76,7 +80,7 @@ func TestDo(t *testing.T) {
 							},
 							Role: "roles/accessapproval.approver",
 							Condition: &expr.Expr{
-								Title:      conditionTitle,
+								Title:      ConditionTitle,
 								Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
 							},
 						},
@@ -90,7 +94,7 @@ func TestDo(t *testing.T) {
 				policy: &iampb.Policy{},
 			},
 			request: &v1alpha1.IAMRequestWrapper{
-				Request: &v1alpha1.IAMRequest{
+				IAMRequest: &v1alpha1.IAMRequest{
 					ResourcePolicies: []*v1alpha1.ResourcePolicy{
 						{
 							Resource: "organizations/foo",
@@ -147,7 +151,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/accessapproval.approver",
 								Condition: &expr.Expr{
-									Title:      conditionTitle,
+									Title:      ConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -158,7 +162,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/accessapproval.approver",
 								Condition: &expr.Expr{
-									Title:      conditionTitle,
+									Title:      ConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -175,7 +179,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/cloudkms.cryptoOperator",
 								Condition: &expr.Expr{
-									Title:      conditionTitle,
+									Title:      ConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -192,10 +196,69 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/bigquery.dataViewer",
 								Condition: &expr.Expr{
-									Title:      conditionTitle,
+									Title:      ConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
+						},
+					},
+				},
+			},
+			wantOrgsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-org-userA@example.com",
+						},
+						Role: "roles/accessapproval.approver",
+					},
+					{
+						Members: []string{
+							"user:test-org-userC@example.com",
+						},
+						Role: "roles/accessapproval.approver",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
+						},
+					},
+					{
+						Members: []string{
+							"user:test-org-userA@example.com",
+							"user:test-org-userB@example.com",
+						},
+						Role: "roles/accessapproval.approver",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
+						},
+					},
+				},
+			},
+			wantFoldersPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-folder-user@example.com",
+						},
+						Role: "roles/cloudkms.cryptoOperator",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
+						},
+					},
+				},
+			},
+			wantProjectsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-project-user@example.com",
+						},
+						Role: "roles/bigquery.dataViewer",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
 				},
@@ -214,7 +277,7 @@ func TestDo(t *testing.T) {
 				policy: &iampb.Policy{},
 			},
 			request: &v1alpha1.IAMRequestWrapper{
-				Request: &v1alpha1.IAMRequest{
+				IAMRequest: &v1alpha1.IAMRequest{
 					ResourcePolicies: []*v1alpha1.ResourcePolicy{
 						{
 							Resource: "organizations/foo",
@@ -254,7 +317,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/bigquery.dataViewer",
 								Condition: &expr.Expr{
-									Title:      conditionTitle,
+									Title:      ConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -262,7 +325,23 @@ func TestDo(t *testing.T) {
 					},
 				},
 			},
-			wantErrSubstr: "Get IAM policy encountered error: Internal Server Error",
+			wantErrSubstr:     "Get IAM policy encountered error: Internal Server Error",
+			wantOrgsPolicy:    &iampb.Policy{},
+			wantFoldersPolicy: &iampb.Policy{},
+			wantProjectsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-project-user@example.com",
+						},
+						Role: "roles/bigquery.dataViewer",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(2*time.Hour).Format(time.RFC3339)),
+						},
+					},
+				},
+			},
 		},
 		{
 			name: "failed_with_projects_server_set_iam_policy_error",
@@ -277,7 +356,7 @@ func TestDo(t *testing.T) {
 				setIAMPolicyErr: fmt.Errorf("Set IAM policy encountered error: Internal Server Error"),
 			},
 			request: &v1alpha1.IAMRequestWrapper{
-				Request: &v1alpha1.IAMRequest{
+				IAMRequest: &v1alpha1.IAMRequest{
 					ResourcePolicies: []*v1alpha1.ResourcePolicy{
 						{
 							Resource: "folders/bar",
@@ -316,7 +395,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/cloudkms.cryptoOperator",
 								Condition: &expr.Expr{
-									Title:      conditionTitle,
+									Title:      ConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -324,7 +403,23 @@ func TestDo(t *testing.T) {
 					},
 				},
 			},
-			wantErrSubstr: "Set IAM policy encountered error: Internal Server Error",
+			wantErrSubstr:  "Set IAM policy encountered error: Internal Server Error",
+			wantOrgsPolicy: &iampb.Policy{},
+			wantFoldersPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-folder-user@example.com",
+						},
+						Role: "roles/cloudkms.cryptoOperator",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", time.Now().Add(1*time.Hour).Format(time.RFC3339)),
+						},
+					},
+				},
+			},
+			wantProjectsPolicy: &iampb.Policy{},
 		},
 	}
 
@@ -340,12 +435,15 @@ func TestDo(t *testing.T) {
 			addrOrg, connOrg := testutil.FakeGRPCServer(t, func(s *grpc.Server) {
 				resourcemanagerpb.RegisterOrganizationsServer(s, tc.orgsServer)
 			})
+			defer connOrg.Close()
 			addrFol, connFol := testutil.FakeGRPCServer(t, func(s *grpc.Server) {
 				resourcemanagerpb.RegisterFoldersServer(s, tc.foldersServer)
 			})
+			defer connFol.Close()
 			addrPro, connPro := testutil.FakeGRPCServer(t, func(s *grpc.Server) {
 				resourcemanagerpb.RegisterProjectsServer(s, tc.projectsServer)
 			})
+			defer connPro.Close()
 
 			// Setup fake clients.
 			fakeOrgClient, err := resourcemanager.NewOrganizationsClient(ctx, option.WithGRPCConn(connOrg))
@@ -363,9 +461,10 @@ func TestDo(t *testing.T) {
 
 			h, err := NewIAMHandler(
 				ctx,
-				WithOrganizationsClient(fakeOrgClient),
-				WithFoldersClient(fakeFolClient),
-				WithProjectsClient(fakeProClient),
+				fakeOrgClient,
+				fakeFolClient,
+				fakeProClient,
+				WithRetry(retry.WithMaxRetries(0, retry.NewFibonacci(500*time.Millisecond))),
 			)
 			if err != nil {
 				t.Fatalf("failed to create IAMHandler: %v", err)
@@ -376,13 +475,21 @@ func TestDo(t *testing.T) {
 			if diff := testutil.DiffErrString(gotErr, tc.wantErrSubstr); diff != "" {
 				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
 			}
-			// Verify that the Policy is modified accordingly.
+			// Verify that the Policies are modified accordingly.
 			if diff := cmp.Diff(tc.wantPolicies, gotPolicies, protocmp.Transform()); diff != "" {
 				t.Errorf("Process(%+v) got diff (-want, +got): %v", tc.name, diff)
 			}
 
-			if err := h.Cleanup(); err != nil {
-				t.Fatalf("failed to clean up handler: %v", err)
+			if diff := cmp.Diff(tc.wantOrgsPolicy, tc.orgsServer.policy, protocmp.Transform()); diff != "" {
+				t.Errorf("Process(%+v) got org policy diff (-want, +got): %v", tc.name, diff)
+			}
+
+			if diff := cmp.Diff(tc.wantFoldersPolicy, tc.foldersServer.policy, protocmp.Transform()); diff != "" {
+				t.Errorf("Process(%+v) got folder policy diff (-want, +got): %v", tc.name, diff)
+			}
+
+			if diff := cmp.Diff(tc.wantProjectsPolicy, tc.projectsServer.policy, protocmp.Transform()); diff != "" {
+				t.Errorf("Process(%+v) got project policy diff (-want, +got): %v", tc.name, diff)
 			}
 		})
 	}
@@ -397,10 +504,16 @@ type fakeOrgsServer struct {
 }
 
 func (s *fakeOrgsServer) GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
+	if s.getIAMPolicyErr != nil {
+		return nil, s.getIAMPolicyErr
+	}
 	return s.policy, s.getIAMPolicyErr
 }
 
 func (s *fakeOrgsServer) SetIamPolicy(c context.Context, r *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
+	if s.setIAMPolicyErr != nil {
+		return nil, s.setIAMPolicyErr
+	}
 	s.policy = r.Policy
 	return s.policy, s.setIAMPolicyErr
 }
@@ -414,10 +527,16 @@ type fakeFoldersServer struct {
 }
 
 func (s *fakeFoldersServer) GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
+	if s.getIAMPolicyErr != nil {
+		return nil, s.getIAMPolicyErr
+	}
 	return s.policy, s.getIAMPolicyErr
 }
 
 func (s *fakeFoldersServer) SetIamPolicy(c context.Context, r *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
+	if s.setIAMPolicyErr != nil {
+		return nil, s.setIAMPolicyErr
+	}
 	s.policy = r.Policy
 	return s.policy, s.setIAMPolicyErr
 }
@@ -431,10 +550,16 @@ type fakeProjectsServer struct {
 }
 
 func (s *fakeProjectsServer) GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
+	if s.getIAMPolicyErr != nil {
+		return nil, s.getIAMPolicyErr
+	}
 	return s.policy, s.getIAMPolicyErr
 }
 
 func (s *fakeProjectsServer) SetIamPolicy(c context.Context, r *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
+	if s.setIAMPolicyErr != nil {
+		return nil, s.setIAMPolicyErr
+	}
 	s.policy = r.Policy
 	return s.policy, s.setIAMPolicyErr
 }
