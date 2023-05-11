@@ -164,14 +164,14 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 
 	// Add new bindings with expiration condition.
 	t := time.Now().UTC().Add(ttl).Format(time.RFC3339)
-	for _, b := range bs {
+	for r, ms := range bsMap {
 		newBinding := &iampb.Binding{
 			Condition: &expr.Expr{
 				Title:      ConditionTitle,
 				Expression: fmt.Sprintf("request.time < timestamp('%s')", t),
 			},
-			Members: b.Members,
-			Role:    b.Role,
+			Members: ms,
+			Role:    r,
 		}
 		p.Bindings = append(p.Bindings, newBinding)
 	}

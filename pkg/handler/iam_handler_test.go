@@ -107,6 +107,13 @@ func TestDo(t *testing.T) {
 									},
 									Role: "roles/accessapproval.approver",
 								},
+								// Dup bindings in the request to be removed.
+								{
+									Members: []string{
+										"user:test-org-userB@example.com",
+									},
+									Role: "roles/accessapproval.approver",
+								},
 							},
 						},
 						{
