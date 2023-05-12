@@ -33,12 +33,12 @@ type ResourcePolicy struct {
 
 // Binding associates IAM principals/members with a role.
 type Binding struct {
-	// Members is a list of IAM principals, check
-	// https://cloud.google.com/resource-manager/reference/rest/Shared.Types/Binding
-	// for acceptable values.
+	// Members is a list of IAM principals, limited to list of users.
+	// For example ["user:alice@example.com"].
 	Members []string `yaml:"members,omitempty"`
 
-	// Role to be assigned to Members. For example, roles/viewer, roles/editor, or
-	// roles/owner.
+	// Role to be assigned to Members. Basic roles, including Owner (roles/owner),
+	// Editor (roles/editor), and Viewer (roles/viewer) are not allowed since
+	// conditional role bindings do not work with basic roles.
 	Role string `yaml:"role,omitempty"`
 }
