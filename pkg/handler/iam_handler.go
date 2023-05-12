@@ -154,7 +154,11 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 			continue
 		}
 		// TODO (#6): Remove expired bindings.
-		// Exclude duplicative Members from current bindings.
+		// Keep members that are not in the new bindings.
+		if bsMap[cb.Role] == nil {
+			result = append(result, cb)
+			continue
+		}
 		var nm []string
 		for _, m := range cb.Members {
 			if _, ok := bsMap[cb.Role][m]; !ok {
@@ -170,18 +174,16 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 
 	// Add new bindings with expiration condition.
 	t := time.Now().UTC().Add(ttl).Format(time.RFC3339)
-	for r, set := range bsMap {
-		ms := make([]string, 0, len(set))
-		for m := range set {
-			ms = append(ms, m)
-		}
+	for r, ms := range bsMap {
 		newBinding := &iampb.Binding{
 			Condition: &expr.Expr{
 				Title:      ConditionTitle,
 				Expression: fmt.Sprintf("request.time < timestamp('%s')", t),
 			},
-			Members: ms,
-			Role:    r,
+			Role: r,
+		}
+		for m := range ms {
+			newBinding.Members = append(newBinding.Members, m)
 		}
 		p.Bindings = append(p.Bindings, newBinding)
 	}

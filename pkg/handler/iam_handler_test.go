@@ -74,6 +74,17 @@ func TestDo(t *testing.T) {
 								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 							},
 						},
+						// Binding with role that not found in the request to be keeped.
+						{
+							Members: []string{
+								"user:test-org-userB@example.com",
+							},
+							Role: "roles/accesscontextmanager.policyAdmin",
+							Condition: &expr.Expr{
+								Title:      ConditionTitle,
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
+							},
+						},
 						// Unexpired bindings to be de-dupped.
 						{
 							Members: []string{
@@ -156,6 +167,16 @@ func TestDo(t *testing.T) {
 							},
 							{
 								Members: []string{
+									"user:test-org-userB@example.com",
+								},
+								Role: "roles/accesscontextmanager.policyAdmin",
+								Condition: &expr.Expr{
+									Title:      ConditionTitle,
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
+								},
+							},
+							{
+								Members: []string{
 									"user:test-org-userC@example.com",
 								},
 								Role: "roles/accessapproval.approver",
@@ -220,6 +241,16 @@ func TestDo(t *testing.T) {
 							"user:test-org-userA@example.com",
 						},
 						Role: "roles/accessapproval.approver",
+					},
+					{
+						Members: []string{
+							"user:test-org-userB@example.com",
+						},
+						Role: "roles/accesscontextmanager.policyAdmin",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
+						},
 					},
 					{
 						Members: []string{
