@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -154,8 +155,8 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 			continue
 		}
 		// TODO (#6): Remove expired bindings.
-		// Keep members that are not in the new bindings.
-		if bsMap[cb.Role] == nil {
+		// Skip roles we are not interested in.
+		if _, ok := bsMap[cb.Role]; !ok {
 			result = append(result, cb)
 			continue
 		}
@@ -185,6 +186,7 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 		for m := range ms {
 			newBinding.Members = append(newBinding.Members, m)
 		}
+		sort.Strings(newBinding.Members)
 		p.Bindings = append(p.Bindings, newBinding)
 	}
 }
