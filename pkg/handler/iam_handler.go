@@ -143,7 +143,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 
 // Remove expired bindings and add or update new bindings with expiration condition.
 func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
-	// Convert new bindings to a role to bindings map.
+	// Convert new bindings to a role to unique bindings map.
 	bsMap := toBindingsMap(bs)
 	// Clean up current policy bindings.
 	var result []*iampb.Binding
@@ -155,8 +155,14 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 		}
 		// TODO (#6): Remove expired bindings.
 		// Exclude duplicative Members from current bindings.
-		cb.Members = removeCommonValues(cb.Members, bsMap[cb.Role])
-		if len(cb.Members) > 0 {
+		var nm []string
+		for _, m := range cb.Members {
+			if _, ok := bsMap[cb.Role][m]; !ok {
+				nm = append(nm, m)
+			}
+		}
+		if len(nm) > 0 {
+			cb.Members = nm
 			result = append(result, cb)
 		}
 	}
@@ -164,7 +170,11 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 
 	// Add new bindings with expiration condition.
 	t := time.Now().UTC().Add(ttl).Format(time.RFC3339)
-	for r, ms := range bsMap {
+	for r, set := range bsMap {
+		ms := make([]string, 0, len(set))
+		for m := range set {
+			ms = append(ms, m)
+		}
 		newBinding := &iampb.Binding{
 			Condition: &expr.Expr{
 				Title:      ConditionTitle,
@@ -177,25 +187,14 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 	}
 }
 
-func toBindingsMap(bs []*v1alpha1.Binding) map[string][]string {
-	m := make(map[string][]string)
+func toBindingsMap(bs []*v1alpha1.Binding) map[string]map[string]struct{} {
+	result := make(map[string]map[string]struct{})
 	for _, b := range bs {
-		m[b.Role] = removeCommonValues(m[b.Role], b.Members)
-		m[b.Role] = append(m[b.Role], b.Members...)
-	}
-	return m
-}
-
-// Returns a result list of strings in l1 that are not found in l2.
-func removeCommonValues(l1, l2 []string) []string {
-	var result []string
-	set := make(map[string]struct{})
-	for _, e := range l2 {
-		set[e] = struct{}{}
-	}
-	for _, e := range l1 {
-		if _, contains := set[e]; !contains {
-			result = append(result, e)
+		if result[b.Role] == nil {
+			result[b.Role] = make(map[string]struct{})
+		}
+		for _, m := range b.Members {
+			result[b.Role][m] = struct{}{}
 		}
 	}
 	return result
