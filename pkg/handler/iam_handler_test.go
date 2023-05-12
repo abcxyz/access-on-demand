@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/iam/apiv1/iampb"
-	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 	"cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/pkg/testutil"
@@ -32,6 +31,8 @@ import (
 	"google.golang.org/genproto/googleapis/type/expr"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
+
+	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
 
 func TestDo(t *testing.T) {
@@ -492,6 +493,9 @@ func setupFakeClients(t *testing.T, ctx context.Context, s1, s2, s3 *fakeServer)
 		addr, conn := testutil.FakeGRPCServer(t, func(s *grpc.Server) {
 			// Use ProjectsServer since it has the same APIs we need.
 			resourcemanagerpb.RegisterProjectsServer(s, e)
+		})
+		t.Cleanup(func() {
+			conn.Close()
 		})
 		// Use ProjectsClient since it has the same APIs we need.
 		fakeClient, err := resourcemanager.NewProjectsClient(ctx, option.WithGRPCConn(conn))
