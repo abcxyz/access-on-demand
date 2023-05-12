@@ -26,7 +26,7 @@ func TestValidateIAMRequest(t *testing.T) {
 	cases := []struct {
 		name    string
 		request *IAMRequest
-		wantErr  string
+		wantErr string
 	}{
 		{
 			name: "success",

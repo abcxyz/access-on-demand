@@ -24,8 +24,8 @@ import (
 // allowedResource defines the resource supported.
 var allowedResource = map[string]struct{}{
 	"organizations": {},
-	"folders": {},
-	"projects": {},
+	"folders":       {},
+	"projects":      {},
 }
 
 // ValidateIAMRequest checks if the ResourceMapping is valid.
