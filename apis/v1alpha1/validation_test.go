@@ -70,7 +70,7 @@ func TestValidateIAMRequest(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid email",
+			name: "invalid_email",
 			request: &IAMRequest{
 				ResourcePolicies: []*ResourcePolicy{
 					{
@@ -86,10 +86,10 @@ func TestValidateIAMRequest(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "email example.com is not valid",
+			wantErr: "member \"example.com\" does not appear to be a valid email address",
 		},
 		{
-			name: "invalid member",
+			name: "invalid_member",
 			request: &IAMRequest{
 				ResourcePolicies: []*ResourcePolicy{
 					{
@@ -106,10 +106,10 @@ func TestValidateIAMRequest(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "member group:test-group@example.com is not of user type",
+			wantErr: "member \"group:test-group@example.com\" is not of \"user\" type",
 		},
 		{
-			name: "invalid resource",
+			name: "invalid_resource",
 			request: &IAMRequest{
 				ResourcePolicies: []*ResourcePolicy{
 					{
@@ -126,7 +126,7 @@ func TestValidateIAMRequest(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "resource isn't one of [organizations, folders, projects]",
+			wantErr: "resource \"foo\" isn't one of [organizations, folders, projects]",
 		},
 	}
 
@@ -138,7 +138,7 @@ func TestValidateIAMRequest(t *testing.T) {
 
 			gotErr := ValidateIAMRequest(tc.request)
 			if diff := testutil.DiffErrString(gotErr, tc.wantErr); diff != "" {
-				t.Errorf("ValidateIAMRequest got unexpected error: %s", diff)
+				t.Errorf("Process %s got unexpected error: %s", tc.name, diff)
 			}
 		})
 	}

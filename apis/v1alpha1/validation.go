@@ -21,30 +21,36 @@ import (
 	"strings"
 )
 
-// allowedResource defines the resource supported.
-var allowedResource = map[string]struct{}{
-	"organizations": {},
-	"folders":       {},
-	"projects":      {},
-}
-
-// ValidateIAMRequest checks if the ResourceMapping is valid.
+// ValidateIAMRequest checks if the IAMRequest is valid.
 func ValidateIAMRequest(r *IAMRequest) (retErr error) {
 	for _, s := range r.ResourcePolicies {
 		// Check if resource type is valid.
-		if _, contains := allowedResource[strings.Split(s.Resource, "/")[0]]; !contains {
-			retErr = errors.Join(retErr, fmt.Errorf("resource isn't one of [organizations, folders, projects]"))
+		resourceType := strings.Split(s.Resource, "/")[0]
+		switch resourceType {
+		case "organizations", "folders", "projects":
+			// Ok.
+		default:
+			retErr = errors.Join(retErr, fmt.Errorf("resource %q isn't one of [organizations, folders, projects]", s.Resource))
 		}
+
 		// Check if IAM member is valid.
 		for _, b := range s.Bindings {
 			for _, m := range b.Members {
-				// AOD only supports user level request.
-				if !strings.HasPrefix(m, "user:") {
-					retErr = errors.Join(retErr, fmt.Errorf("member %s is not of user type", m))
+				parts := strings.SplitN(m, ":", 2)
+				if len(parts) < 2 {
+					retErr = errors.Join(retErr, fmt.Errorf("member %q is not a valid format (expected \"user:<email>\"", m))
+					continue
 				}
-				e := strings.Split(m, ":")[1]
-				if _, err := mail.ParseAddress(e); err != nil {
-					retErr = errors.Join(retErr, fmt.Errorf("email %s is not valid: %w", e, err))
+
+				// Check if prefix is "user".
+				if got, want := parts[0], "user"; got != want {
+					retErr = errors.Join(retErr, fmt.Errorf("member %q is not of \"user\" type (got %q)", m, got))
+				}
+
+				// Check if the email is a valid email.
+				email := parts[1]
+				if _, err := mail.ParseAddress(email); err != nil {
+					retErr = errors.Join(retErr, fmt.Errorf("member %q does not appear to be a valid email address", email))
 				}
 			}
 		}
