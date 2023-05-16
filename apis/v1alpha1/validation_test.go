@@ -86,7 +86,7 @@ func TestValidateIAMRequest(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "member \"example.com\" does not appear to be a valid email address",
+			wantErr: `member "example.com" does not appear to be a valid email address`,
 		},
 		{
 			name: "invalid_member",
@@ -106,7 +106,7 @@ func TestValidateIAMRequest(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "member \"group:test-group@example.com\" is not of \"user\" type",
+			wantErr: `member "group:test-group@example.com" is not of "user" type`,
 		},
 		{
 			name: "invalid_resource",
@@ -126,7 +126,7 @@ func TestValidateIAMRequest(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "resource \"foo\" isn't one of [organizations, folders, projects]",
+			wantErr: `resource "foo" isn't one of [organizations, folders, projects]`,
 		},
 	}
 

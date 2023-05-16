@@ -38,13 +38,13 @@ func ValidateIAMRequest(r *IAMRequest) (retErr error) {
 			for _, m := range b.Members {
 				parts := strings.SplitN(m, ":", 2)
 				if len(parts) < 2 {
-					retErr = errors.Join(retErr, fmt.Errorf("member %q is not a valid format (expected \"user:<email>\"", m))
+					retErr = errors.Join(retErr, fmt.Errorf(`member %q is not a valid format (expected "user:<email>"`, m))
 					continue
 				}
 
 				// Check if prefix is "user".
 				if got, want := parts[0], "user"; got != want {
-					retErr = errors.Join(retErr, fmt.Errorf("member %q is not of \"user\" type (got %q)", m, got))
+					retErr = errors.Join(retErr, fmt.Errorf(`member %q is not of "user" type (got %q)`, m, got))
 				}
 
 				// Check if the email is a valid email.
