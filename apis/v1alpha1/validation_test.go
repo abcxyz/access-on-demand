@@ -86,10 +86,10 @@ func TestValidateIAMRequest(t *testing.T) {
 					},
 				},
 			},
-			wantErr: `member "example.com" does not appear to be a valid email address`,
+			wantErr: `member "user:example.com" does not appear to be a valid email address (got "example.com")`,
 		},
 		{
-			name: "invalid_member",
+			name: "invalid_member_invalid_type",
 			request: &IAMRequest{
 				ResourcePolicies: []*ResourcePolicy{
 					{
@@ -107,6 +107,63 @@ func TestValidateIAMRequest(t *testing.T) {
 				},
 			},
 			wantErr: `member "group:test-group@example.com" is not of "user" type`,
+		},
+		{
+			name: "invalid_member_missing_email",
+			request: &IAMRequest{
+				ResourcePolicies: []*ResourcePolicy{
+					{
+						Resource: "folders/foo",
+						Bindings: []*Binding{
+							{
+								Members: []string{
+									"user:",
+								},
+								Role: "roles/accessapproval.approver",
+							},
+						},
+					},
+				},
+			},
+			wantErr: `member "user:" does not appear to be a valid email address (got "")`,
+		},
+		{
+			name: "invalid_member_too_many_parts",
+			request: &IAMRequest{
+				ResourcePolicies: []*ResourcePolicy{
+					{
+						Resource: "folders/foo",
+						Bindings: []*Binding{
+							{
+								Members: []string{
+									`:user[@example.com](https://github.com/example.com)`,
+								},
+								Role: "roles/accessapproval.approver",
+							},
+						},
+					},
+				},
+			},
+			wantErr: `member ":user[@example.com](https://github.com/example.com)" is not of "user" type (got "")`,
+		},
+		{
+			name: "invalid_member_format_missing_delimiter",
+			request: &IAMRequest{
+				ResourcePolicies: []*ResourcePolicy{
+					{
+						Resource: "folders/foo",
+						Bindings: []*Binding{
+							{
+								Members: []string{
+									"user",
+								},
+								Role: "roles/accessapproval.approver",
+							},
+						},
+					},
+				},
+			},
+			wantErr: `member "user" is not a valid format (expected "user:<email>")`,
 		},
 		{
 			name: "invalid_resource",

@@ -38,7 +38,7 @@ func ValidateIAMRequest(r *IAMRequest) (retErr error) {
 			for _, m := range b.Members {
 				parts := strings.SplitN(m, ":", 2)
 				if len(parts) < 2 {
-					retErr = errors.Join(retErr, fmt.Errorf(`member %q is not a valid format (expected "user:<email>"`, m))
+					retErr = errors.Join(retErr, fmt.Errorf(`member %q is not a valid format (expected "user:<email>")`, m))
 					continue
 				}
 
@@ -50,7 +50,7 @@ func ValidateIAMRequest(r *IAMRequest) (retErr error) {
 				// Check if the email is a valid email.
 				email := parts[1]
 				if _, err := mail.ParseAddress(email); err != nil {
-					retErr = errors.Join(retErr, fmt.Errorf("member %q does not appear to be a valid email address", email))
+					retErr = errors.Join(retErr, fmt.Errorf("member %q does not appear to be a valid email address (got %q)", m, email))
 				}
 			}
 		}
