@@ -128,7 +128,7 @@ func TestValidateIAMRequest(t *testing.T) {
 			wantErr: `member "user:" does not appear to be a valid email address (got "")`,
 		},
 		{
-			name: "invalid_member_too_many_parts",
+			name: "invalid_member_missing_type",
 			request: &IAMRequest{
 				ResourcePolicies: []*ResourcePolicy{
 					{
@@ -136,7 +136,7 @@ func TestValidateIAMRequest(t *testing.T) {
 						Bindings: []*Binding{
 							{
 								Members: []string{
-									`:user[@example.com](https://github.com/example.com)`,
+									`:user@example.com`,
 								},
 								Role: "roles/accessapproval.approver",
 							},
@@ -144,7 +144,7 @@ func TestValidateIAMRequest(t *testing.T) {
 					},
 				},
 			},
-			wantErr: `member ":user[@example.com](https://github.com/example.com)" is not of "user" type (got "")`,
+			wantErr: `member ":user@example.com" is not of "user" type (got "")`,
 		},
 		{
 			name: "invalid_member_format_missing_delimiter",
