@@ -22,14 +22,17 @@ import (
 	"time"
 
 	"cloud.google.com/go/iam/apiv1/iampb"
+	"cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
-	"github.com/abcxyz/access-on-demand/pkg/testutil"
+	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/sethvargo/go-retry"
+	"google.golang.org/api/option"
 	"google.golang.org/genproto/googleapis/type/expr"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	pkgtestutil "github.com/abcxyz/pkg/testutil"
+	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
 
 func TestDo(t *testing.T) {
@@ -38,9 +41,9 @@ func TestDo(t *testing.T) {
 	now := time.Now().UTC()
 	cases := []struct {
 		name                    string
-		organizationsServer     *testutil.FakeServer
-		foldersServer           *testutil.FakeServer
-		projectsServer          *testutil.FakeServer
+		organizationsServer     *fakeServer
+		foldersServer           *fakeServer
+		projectsServer          *fakeServer
 		request                 *v1alpha1.IAMRequestWrapper
 		wantPolicies            []*v1alpha1.IAMResponse
 		wantErrSubstr           string
@@ -50,14 +53,14 @@ func TestDo(t *testing.T) {
 	}{
 		{
 			name: "happy_path",
-			organizationsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
-			foldersServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
-			projectsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
 			request: &v1alpha1.IAMRequestWrapper{
 				IAMRequest: &v1alpha1.IAMRequest{
@@ -200,8 +203,8 @@ func TestDo(t *testing.T) {
 		},
 		{
 			name: "clean_up_duplicated_members",
-			organizationsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{
 					Bindings: []*iampb.Binding{
 						// Unexpired bindings to be removed.
 						{
@@ -229,11 +232,11 @@ func TestDo(t *testing.T) {
 					},
 				},
 			},
-			foldersServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
-			projectsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
 			request: &v1alpha1.IAMRequestWrapper{
 				IAMRequest: &v1alpha1.IAMRequest{
@@ -321,11 +324,11 @@ func TestDo(t *testing.T) {
 		},
 		{
 			name: "ignore_non-AOD_bindings",
-			organizationsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
-			foldersServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{
 					// Non-AOD bindings.
 					Bindings: []*iampb.Binding{
 						{
@@ -337,8 +340,8 @@ func TestDo(t *testing.T) {
 					},
 				},
 			},
-			projectsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
 			request: &v1alpha1.IAMRequestWrapper{
 				IAMRequest: &v1alpha1.IAMRequest{
@@ -408,21 +411,21 @@ func TestDo(t *testing.T) {
 		},
 		{
 			name: "ignore_unrelated_roles",
-			organizationsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
-			foldersServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
-			projectsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{
 					Bindings: []*iampb.Binding{
 						// Binding with role that not found in the request to be kept.
 						{
 							Members: []string{
 								"user:test-project_user@example.com",
 							},
-							Role: "roles/accesscontextmanager.PolicyAdmin",
+							Role: "roles/accesscontextmanager.policyAdmin",
 							Condition: &expr.Expr{
 								Title:      ConditionTitle,
 								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
@@ -458,7 +461,7 @@ func TestDo(t *testing.T) {
 								Members: []string{
 									"user:test-project_user@example.com",
 								},
-								Role: "roles/accesscontextmanager.PolicyAdmin",
+								Role: "roles/accesscontextmanager.policyAdmin",
 								Condition: &expr.Expr{
 									Title:      ConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
@@ -486,7 +489,7 @@ func TestDo(t *testing.T) {
 						Members: []string{
 							"user:test-project_user@example.com",
 						},
-						Role: "roles/accesscontextmanager.PolicyAdmin",
+						Role: "roles/accesscontextmanager.policyAdmin",
 						Condition: &expr.Expr{
 							Title:      ConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
@@ -507,15 +510,15 @@ func TestDo(t *testing.T) {
 		},
 		{
 			name: "failed_with_orgs_server_get_iam_policy_error",
-			organizationsServer: &testutil.FakeServer{
-				Policy:          &iampb.Policy{},
-				GetIAMPolicyErr: fmt.Errorf("Get IAM policy encountered error: Internal Server Error"),
+			organizationsServer: &fakeServer{
+				policy:          &iampb.Policy{},
+				getIAMPolicyErr: fmt.Errorf("Get IAM policy encountered error: Internal Server Error"),
 			},
-			foldersServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
-			projectsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
 			request: &v1alpha1.IAMRequestWrapper{
 				IAMRequest: &v1alpha1.IAMRequest{
@@ -586,15 +589,15 @@ func TestDo(t *testing.T) {
 		},
 		{
 			name: "failed_with_projects_server_set_iam_policy_error",
-			organizationsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
-			foldersServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
 			},
-			projectsServer: &testutil.FakeServer{
-				Policy:          &iampb.Policy{},
-				SetIAMPolicyErr: fmt.Errorf("Set IAM policy encountered error: Internal Server Error"),
+			projectsServer: &fakeServer{
+				policy:          &iampb.Policy{},
+				setIAMPolicyErr: fmt.Errorf("Set IAM policy encountered error: Internal Server Error"),
 			},
 			request: &v1alpha1.IAMRequestWrapper{
 				IAMRequest: &v1alpha1.IAMRequest{
@@ -672,7 +675,7 @@ func TestDo(t *testing.T) {
 
 			ctx := context.Background()
 
-			fakeOrganizationsClient, fakeFoldersClient, fakeProjectsClient := testutil.SetupFakeClients(
+			fakeOrganizationsClient, fakeFoldersClient, fakeProjectsClient := setupFakeClients(
 				t,
 				ctx,
 				tc.organizationsServer,
@@ -690,9 +693,9 @@ func TestDo(t *testing.T) {
 				t.Fatalf("failed to create IAMHandler: %v", err)
 			}
 
-			// Run testutil.
+			// Run test.
 			gotPolicies, gotErr := h.Do(ctx, tc.request)
-			if diff := pkgtestutil.DiffErrString(gotErr, tc.wantErrSubstr); diff != "" {
+			if diff := testutil.DiffErrString(gotErr, tc.wantErrSubstr); diff != "" {
 				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
 			}
 			// Verify that the Policies are modified accordingly.
@@ -700,17 +703,65 @@ func TestDo(t *testing.T) {
 				t.Errorf("Process(%+v) got diff (-want, +got): %v", tc.name, diff)
 			}
 
-			if diff := cmp.Diff(tc.wantOrganizationsPolicy, tc.organizationsServer.Policy, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.wantOrganizationsPolicy, tc.organizationsServer.policy, protocmp.Transform()); diff != "" {
 				t.Errorf("Process(%+v) got org policy diff (-want, +got): %v", tc.name, diff)
 			}
 
-			if diff := cmp.Diff(tc.wantFoldersPolicy, tc.foldersServer.Policy, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.wantFoldersPolicy, tc.foldersServer.policy, protocmp.Transform()); diff != "" {
 				t.Errorf("Process(%+v) got folder policy diff (-want, +got): %v", tc.name, diff)
 			}
 
-			if diff := cmp.Diff(tc.wantProjectsPolicy, tc.projectsServer.Policy, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.wantProjectsPolicy, tc.projectsServer.policy, protocmp.Transform()); diff != "" {
 				t.Errorf("Process(%+v) got project policy diff (-want, +got): %v", tc.name, diff)
 			}
 		})
 	}
+}
+
+func setupFakeClients(t *testing.T, ctx context.Context, s1, s2, s3 *fakeServer) (c1, c2, c3 IAMClient) {
+	t.Helper()
+
+	ss := []*fakeServer{s1, s2, s3}
+	cs := make([]IAMClient, 3)
+	for i, e := range ss {
+		// Setup fake servers.
+		addr, conn := testutil.FakeGRPCServer(t, func(s *grpc.Server) {
+			// Use ProjectsServer since it has the same APIs we need.
+			resourcemanagerpb.RegisterProjectsServer(s, e)
+		})
+		t.Cleanup(func() {
+			conn.Close()
+		})
+		// Use ProjectsClient since it has the same APIs we need.
+		fakeClient, err := resourcemanager.NewProjectsClient(ctx, option.WithGRPCConn(conn))
+		if err != nil {
+			t.Fatalf("creating client for fake at %q: %v", addr, err)
+		}
+		cs[i] = fakeClient
+	}
+	return cs[0], cs[1], cs[2]
+}
+
+type fakeServer struct {
+	// Use ProjectsServer since it has the same APIs we need.
+	resourcemanagerpb.UnimplementedProjectsServer
+
+	policy          *iampb.Policy
+	getIAMPolicyErr error
+	setIAMPolicyErr error
+}
+
+func (s *fakeServer) GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
+	if s.getIAMPolicyErr != nil {
+		return nil, s.getIAMPolicyErr
+	}
+	return s.policy, s.getIAMPolicyErr
+}
+
+func (s *fakeServer) SetIamPolicy(c context.Context, r *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
+	if s.setIAMPolicyErr != nil {
+		return nil, s.setIAMPolicyErr
+	}
+	s.policy = r.Policy
+	return s.policy, s.setIAMPolicyErr
 }

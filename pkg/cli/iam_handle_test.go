@@ -16,22 +16,15 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	"cloud.google.com/go/iam/apiv1/iampb"
-	"github.com/abcxyz/access-on-demand/pkg/handler"
-	"github.com/abcxyz/access-on-demand/pkg/testutil"
+	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/genproto/googleapis/type/expr"
-	"google.golang.org/protobuf/testing/protocmp"
-
-	pkgtestutil "github.com/abcxyz/pkg/testutil"
 )
 
 func TestIAMHandleCommand(t *testing.T) {
@@ -46,11 +39,11 @@ policies:
   - members:
     - user:test-org-userA@example.com
     - user:test-org-userB@example.com
-    role: roles/accessapproval.approver
+    role: roles/cloudkms.cryptoOperator
   - members:
     - user:test-org-userA@example.com
     - user:test-org-userB@example.com
-    role: roles/cloudkms.cryptoOperator
+    role: roles/accessapproval.approver
 - resource: folders/bar
   bindings:
     - members:
@@ -77,127 +70,42 @@ policies:
 		})
 	}
 
-	now := time.Now().UTC()
 	cases := []struct {
-		name                    string
-		args                    []string
-		fileData                []byte
-		organizationsServer     *testutil.FakeServer
-		foldersServer           *testutil.FakeServer
-		projectsServer          *testutil.FakeServer
-		wantOrganizationsPolicy *iampb.Policy
-		wantFoldersPolicy       *iampb.Policy
-		wantProjectsPolicy      *iampb.Policy
-		expOut                  string
-		expErr                  string
+		name     string
+		args     []string
+		fileData []byte
+		expOut   string
+		expErr   string
 	}{
 		{
-			name: "success",
-			args: []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h"},
-			organizationsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
-			},
-			foldersServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
-			},
-			projectsServer: &testutil.FakeServer{
-				Policy: &iampb.Policy{},
-			},
-			expOut: "IAM request handled successfully",
-			wantOrganizationsPolicy: &iampb.Policy{
-				Bindings: []*iampb.Binding{
-					{
-						Members: []string{
-							"user:test-org-userA@example.com",
-							"user:test-org-userB@example.com",
-						},
-						Role: "roles/accessapproval.approver",
-						Condition: &expr.Expr{
-							Title:      handler.ConditionTitle,
-							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
-						},
-					},
-					{
-						Members: []string{
-							"user:test-org-userA@example.com",
-							"user:test-org-userB@example.com",
-						},
-						Role: "roles/cloudkms.cryptoOperator",
-						Condition: &expr.Expr{
-							Title:      handler.ConditionTitle,
-							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
-						},
-					},
-				},
-			},
-			wantFoldersPolicy: &iampb.Policy{
-				Bindings: []*iampb.Binding{
-					{
-						Members: []string{
-							"user:test-folder-user@example.com",
-						},
-						Role: "roles/cloudkms.cryptoOperator",
-						Condition: &expr.Expr{
-							Title:      handler.ConditionTitle,
-							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
-						},
-					},
-				},
-			},
-			wantProjectsPolicy: &iampb.Policy{
-				Bindings: []*iampb.Binding{
-					{
-						Members: []string{
-							"user:test-project-user@example.com",
-						},
-						Role: "roles/bigquery.dataViewer",
-						Condition: &expr.Expr{
-							Title:      handler.ConditionTitle,
-							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
-						},
-					},
-				},
-			},
+			name:   "success",
+			args:   []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h"},
+			expOut: "Successfully handled IAM request",
 		},
 		{
-			name:                "unexpected_args",
-			args:                []string{"foo"},
-			expErr:              `unexpected arguments: [foo]`,
-			organizationsServer: &testutil.FakeServer{},
-			foldersServer:       &testutil.FakeServer{},
-			projectsServer:      &testutil.FakeServer{},
+			name:   "unexpected_args",
+			args:   []string{"foo"},
+			expErr: `unexpected arguments: [foo]`,
 		},
 		{
-			name:                "missing_path",
-			args:                []string{},
-			expErr:              `path is required`,
-			organizationsServer: &testutil.FakeServer{},
-			foldersServer:       &testutil.FakeServer{},
-			projectsServer:      &testutil.FakeServer{},
+			name:   "missing_path",
+			args:   []string{},
+			expErr: `path is required`,
 		},
 		{
-			name:                "missing_duration",
-			args:                []string{"-path", filepath.Join(dir, "valid.yaml")},
-			expErr:              `duration is required`,
-			organizationsServer: &testutil.FakeServer{},
-			foldersServer:       &testutil.FakeServer{},
-			projectsServer:      &testutil.FakeServer{},
+			name:   "missing_duration",
+			args:   []string{"-path", filepath.Join(dir, "valid.yaml")},
+			expErr: `duration is required`,
 		},
 		{
-			name:                "invalid_duration",
-			args:                []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "-2h"},
-			expErr:              "a positive duration is required",
-			organizationsServer: &testutil.FakeServer{},
-			foldersServer:       &testutil.FakeServer{},
-			projectsServer:      &testutil.FakeServer{},
+			name:   "invalid_duration",
+			args:   []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "-2h"},
+			expErr: "a positive duration is required",
 		},
 		{
-			name:                "invalid_yaml",
-			args:                []string{"-path", filepath.Join(dir, "invalid.yaml"), "-duration", "2h"},
-			expErr:              "failed to unmarshal yaml to IAMRequest",
-			organizationsServer: &testutil.FakeServer{},
-			foldersServer:       &testutil.FakeServer{},
-			projectsServer:      &testutil.FakeServer{},
+			name:   "invalid_yaml",
+			args:   []string{"-path", filepath.Join(dir, "invalid.yaml"), "-duration", "2h"},
+			expErr: "failed to unmarshal yaml to IAMRequest",
 		},
 	}
 
@@ -210,52 +118,24 @@ policies:
 			ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
 			var cmd IAMHandleCommand
-			cmd.handler = testSetupHandler(t, ctx, tc.organizationsServer, tc.foldersServer, tc.projectsServer)
+			cmd.testHandler = &fakeHandler{}
 			_, stdout, _ := cmd.Pipe()
 
 			args := append([]string{}, tc.args...)
 
 			err := cmd.Run(ctx, args)
-			if diff := pkgtestutil.DiffErrString(err, tc.expErr); diff != "" {
+			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
 				t.Errorf("Process(%+v) got error diff (-want, +got):\n%s", tc.name, diff)
 			}
 			if diff := cmp.Diff(strings.TrimSpace(tc.expOut), strings.TrimSpace(stdout.String())); diff != "" {
 				t.Errorf("Process(%+v) got output diff (-want, +got):\n%s", tc.name, diff)
 			}
-
-			if diff := cmp.Diff(tc.wantOrganizationsPolicy, tc.organizationsServer.Policy, protocmp.Transform()); diff != "" {
-				t.Errorf("Process(%+v) got org policy diff (-want, +got): %v", tc.name, diff)
-			}
-
-			if diff := cmp.Diff(tc.wantFoldersPolicy, tc.foldersServer.Policy, protocmp.Transform()); diff != "" {
-				t.Errorf("Process(%+v) got folder policy diff (-want, +got): %v", tc.name, diff)
-			}
-
-			if diff := cmp.Diff(tc.wantProjectsPolicy, tc.projectsServer.Policy, protocmp.Transform()); diff != "" {
-				t.Errorf("Process(%+v) got project policy diff (-want, +got): %v", tc.name, diff)
-			}
 		})
 	}
 }
 
-func testSetupHandler(t *testing.T, ctx context.Context, orgs, folders, projects *testutil.FakeServer) *handler.IAMHandler {
-	t.Helper()
+type fakeHandler struct{}
 
-	fakeOrganizationsClient, fakeFoldersClient, fakeProjectsClient := testutil.SetupFakeClients(
-		t,
-		ctx,
-		orgs,
-		folders,
-		projects,
-	)
-	h, err := handler.NewIAMHandler(
-		ctx,
-		fakeOrganizationsClient,
-		fakeFoldersClient,
-		fakeProjectsClient,
-	)
-	if err != nil {
-		t.Fatalf("failed to create IAMHandler: %v", err)
-	}
-	return h
+func (h *fakeHandler) Do(context.Context, *v1alpha1.IAMRequestWrapper) ([]*v1alpha1.IAMResponse, error) {
+	return nil, nil
 }

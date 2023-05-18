@@ -30,6 +30,12 @@ import (
 
 var _ cli.Command = (*IAMHandleCommand)(nil)
 
+// Handler interface that handles the IAMRequestWrapper.
+type Handler interface {
+	Do(context.Context, *v1alpha1.IAMRequestWrapper) ([]*v1alpha1.IAMResponse, error)
+}
+
+// IAMHandleCommand handles IAM requests.
 type IAMHandleCommand struct {
 	cli.BaseCommand
 
@@ -37,7 +43,8 @@ type IAMHandleCommand struct {
 
 	flagDuration time.Duration
 
-	handler *handler.IAMHandler
+	// testHandler is used for testing only.
+	testHandler Handler
 }
 
 func (c *IAMHandleCommand) Desc() string {
@@ -109,7 +116,11 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 		return fmt.Errorf("failed to unmarshal yaml to IAMRequest: %w", err)
 	}
 
-	if c.handler == nil {
+	var h Handler
+	if c.testHandler != nil {
+		// Use testHandler is it is for testing.
+		h = c.testHandler
+	} else {
 		// Create resource manager clients.
 		organizationsClient, err := resourcemanager.NewOrganizationsClient(ctx)
 		if err != nil {
@@ -130,7 +141,7 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 		defer projectsClient.Close()
 
 		// Create IAMHandler with the clients.
-		c.handler, err = handler.NewIAMHandler(
+		h, err = handler.NewIAMHandler(
 			ctx,
 			organizationsClient,
 			foldersClient,
@@ -146,10 +157,10 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 		IAMRequest: req,
 		Duration:   c.flagDuration,
 	}
-	if _, err := c.handler.Do(ctx, reqWrapper); err != nil {
+	if _, err := h.Do(ctx, reqWrapper); err != nil {
 		return fmt.Errorf("failed to handle IAM request: %w", err)
 	}
-	c.Outf("IAM request handled successfully")
+	c.Outf("Successfully handled IAM request")
 
 	return nil
 }

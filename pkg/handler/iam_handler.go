@@ -25,7 +25,7 @@ import (
 
 	"cloud.google.com/go/iam/apiv1/iampb"
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
-	"github.com/abcxyz/access-on-demand/pkg/iam"
+	"github.com/googleapis/gax-go/v2"
 	"github.com/sethvargo/go-retry"
 	"google.golang.org/genproto/googleapis/type/expr"
 )
@@ -36,12 +36,19 @@ var ConditionTitle = "abcxyz-aod-expiry"
 // IAMHandler updates IAM policies of GCP organizations, folders, and projects
 // based on the IAM request received.
 type IAMHandler struct {
-	organizationsClient iam.IAMClient
-	foldersClient       iam.IAMClient
-	projectsClient      iam.IAMClient
+	organizationsClient IAMClient
+	foldersClient       IAMClient
+	projectsClient      IAMClient
 	// Optional retry backoff strategy, default is 5 attempts with fibonacci
 	// backoff that starts at 500ms.
 	retry retry.Backoff
+}
+
+// IAMClient is the interface to get and set IAM policies for GCP organizations,
+// folders, and projects.
+type IAMClient interface {
+	GetIamPolicy(context.Context, *iampb.GetIamPolicyRequest, ...gax.CallOption) (*iampb.Policy, error)
+	SetIamPolicy(context.Context, *iampb.SetIamPolicyRequest, ...gax.CallOption) (*iampb.Policy, error)
 }
 
 // Option is the option to set up an IAMHandler.
@@ -56,7 +63,7 @@ func WithRetry(b retry.Backoff) Option {
 }
 
 // NewIAMHandler creates a new IAMHandler with provided clients and options.
-func NewIAMHandler(ctx context.Context, organizationsClient, foldersClient, projectsClient iam.IAMClient, opts ...Option) (*IAMHandler, error) {
+func NewIAMHandler(ctx context.Context, organizationsClient, foldersClient, projectsClient IAMClient, opts ...Option) (*IAMHandler, error) {
 	h := &IAMHandler{}
 	for _, opt := range opts {
 		var err error
@@ -93,7 +100,7 @@ func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps
 }
 
 func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, ttl time.Duration) (*v1alpha1.IAMResponse, error) {
-	var iamC iam.IAMClient
+	var iamC IAMClient
 	switch strings.Split(p.Resource, "/")[0] {
 	case "organizations":
 		iamC = h.organizationsClient
