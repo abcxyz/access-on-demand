@@ -21,11 +21,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestIAMHandleCommand(t *testing.T) {
@@ -66,55 +68,113 @@ policies:
 		}
 	}
 
+	// The request expected from the valid request yaml file.
+	validRequest := &v1alpha1.IAMRequest{
+		ResourcePolicies: []*v1alpha1.ResourcePolicy{
+			{
+				Resource: "organizations/foo",
+				Bindings: []*v1alpha1.Binding{
+					{
+						Members: []string{
+							"user:test-org-userA@example.com",
+							"user:test-org-userB@example.com",
+						},
+						Role: "roles/cloudkms.cryptoOperator",
+					},
+					{
+						Members: []string{
+							"user:test-org-userA@example.com",
+							"user:test-org-userB@example.com",
+						},
+						Role: "roles/accessapproval.approver",
+					},
+				},
+			},
+			{
+				Resource: "folders/bar",
+				Bindings: []*v1alpha1.Binding{
+					{
+						Members: []string{
+							"user:test-folder-user@example.com",
+						},
+						Role: "roles/cloudkms.cryptoOperator",
+					},
+				},
+			},
+			{
+				Resource: "projects/baz",
+				Bindings: []*v1alpha1.Binding{
+					{
+						Members: []string{
+							"user:test-project-user@example.com",
+						},
+						Role: "roles/bigquery.dataViewer",
+					},
+				},
+			},
+		},
+	}
+
 	cases := []struct {
 		name     string
 		args     []string
 		fileData []byte
-		handler  iamHandler
+		handler  *fakeIAMHandler
+		expReq   *v1alpha1.IAMRequestWrapper
 		expOut   string
 		expErr   string
 	}{
 		{
 			name:    "success",
 			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h"},
-			handler: &fakeHandler{},
+			handler: &fakeIAMHandler{},
 			expOut:  "Successfully handled IAM request",
+			expReq: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: validRequest,
+				Duration:   2 * time.Hour,
+			},
 		},
 		{
 			name:    "unexpected_args",
 			args:    []string{"foo"},
-			handler: &fakeHandler{},
+			handler: &fakeIAMHandler{},
 			expErr:  `unexpected arguments: ["foo"]`,
 		},
 		{
 			name:    "missing_path",
 			args:    []string{},
-			handler: &fakeHandler{},
+			handler: &fakeIAMHandler{},
 			expErr:  `path is required`,
 		},
 		{
 			name:    "missing_duration",
 			args:    []string{"-path", filepath.Join(dir, "valid.yaml")},
-			handler: &fakeHandler{},
+			handler: &fakeIAMHandler{},
 			expErr:  `duration is required`,
 		},
 		{
 			name:    "invalid_duration",
 			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "-2h"},
-			handler: &fakeHandler{},
+			handler: &fakeIAMHandler{},
 			expErr:  "a positive duration is required",
 		},
 		{
 			name:    "invalid_yaml",
 			args:    []string{"-path", filepath.Join(dir, "invalid.yaml"), "-duration", "2h"},
-			handler: &fakeHandler{},
+			handler: &fakeIAMHandler{},
 			expErr:  "failed to unmarshal yaml to v1alpha1.IAMRequest",
 		},
 		{
-			name:    "handler_failure",
-			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h"},
-			handler: &fakeFailureHandler{},
-			expErr:  "always fail",
+			name: "handler_failure",
+			args: []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "1h"},
+			handler: &fakeIAMHandler{
+				injectErr: fmt.Errorf("injected error"),
+			},
+			expErr: "injected error",
+			expReq: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: validRequest,
+				Duration:   1 * time.Hour,
+			},
 		},
 	}
 
@@ -139,18 +199,19 @@ policies:
 			if diff := cmp.Diff(strings.TrimSpace(tc.expOut), strings.TrimSpace(stdout.String())); diff != "" {
 				t.Errorf("Process(%+v) got output diff (-want, +got):\n%s", tc.name, diff)
 			}
+			if diff := cmp.Diff(tc.expReq, tc.handler.gotReq, protocmp.Transform()); diff != "" {
+				t.Errorf("Process(%+v) got request diff (-want, +got):\n%s", tc.name, diff)
+			}
 		})
 	}
 }
 
-type fakeHandler struct{}
-
-func (h *fakeHandler) Do(context.Context, *v1alpha1.IAMRequestWrapper) ([]*v1alpha1.IAMResponse, error) {
-	return nil, nil
+type fakeIAMHandler struct {
+	injectErr error
+	gotReq    *v1alpha1.IAMRequestWrapper
 }
 
-type fakeFailureHandler struct{}
-
-func (h *fakeFailureHandler) Do(context.Context, *v1alpha1.IAMRequestWrapper) ([]*v1alpha1.IAMResponse, error) {
-	return nil, fmt.Errorf("always fail")
+func (h *fakeIAMHandler) Do(ctx context.Context, req *v1alpha1.IAMRequestWrapper) ([]*v1alpha1.IAMResponse, error) {
+	h.gotReq = req
+	return nil, h.injectErr
 }
