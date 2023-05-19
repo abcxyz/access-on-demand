@@ -16,6 +16,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,49 +64,57 @@ policies:
 		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		t.Cleanup(func() {
-			if err := os.Remove(path); err != nil {
-				t.Fatal(err)
-			}
-		})
 	}
 
 	cases := []struct {
 		name     string
 		args     []string
 		fileData []byte
+		handler  iamHandler
 		expOut   string
 		expErr   string
 	}{
 		{
-			name:   "success",
-			args:   []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h"},
-			expOut: "Successfully handled IAM request",
+			name:    "success",
+			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h"},
+			handler: &fakeHandler{},
+			expOut:  "Successfully handled IAM request",
 		},
 		{
-			name:   "unexpected_args",
-			args:   []string{"foo"},
-			expErr: `unexpected arguments: [foo]`,
+			name:    "unexpected_args",
+			args:    []string{"foo"},
+			handler: &fakeHandler{},
+			expErr:  `unexpected arguments: ["foo"]`,
 		},
 		{
-			name:   "missing_path",
-			args:   []string{},
-			expErr: `path is required`,
+			name:    "missing_path",
+			args:    []string{},
+			handler: &fakeHandler{},
+			expErr:  `path is required`,
 		},
 		{
-			name:   "missing_duration",
-			args:   []string{"-path", filepath.Join(dir, "valid.yaml")},
-			expErr: `duration is required`,
+			name:    "missing_duration",
+			args:    []string{"-path", filepath.Join(dir, "valid.yaml")},
+			handler: &fakeHandler{},
+			expErr:  `duration is required`,
 		},
 		{
-			name:   "invalid_duration",
-			args:   []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "-2h"},
-			expErr: "a positive duration is required",
+			name:    "invalid_duration",
+			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "-2h"},
+			handler: &fakeHandler{},
+			expErr:  "a positive duration is required",
 		},
 		{
-			name:   "invalid_yaml",
-			args:   []string{"-path", filepath.Join(dir, "invalid.yaml"), "-duration", "2h"},
-			expErr: "failed to unmarshal yaml to IAMRequest",
+			name:    "invalid_yaml",
+			args:    []string{"-path", filepath.Join(dir, "invalid.yaml"), "-duration", "2h"},
+			handler: &fakeHandler{},
+			expErr:  "failed to unmarshal yaml to v1alpha1.IAMRequest",
+		},
+		{
+			name:    "handler_failure",
+			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h"},
+			handler: &fakeFailureHandler{},
+			expErr:  "always fail",
 		},
 	}
 
@@ -118,7 +127,7 @@ policies:
 			ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
 			var cmd IAMHandleCommand
-			cmd.testHandler = &fakeHandler{}
+			cmd.testHandler = tc.handler
 			_, stdout, _ := cmd.Pipe()
 
 			args := append([]string{}, tc.args...)
@@ -138,4 +147,10 @@ type fakeHandler struct{}
 
 func (h *fakeHandler) Do(context.Context, *v1alpha1.IAMRequestWrapper) ([]*v1alpha1.IAMResponse, error) {
 	return nil, nil
+}
+
+type fakeFailureHandler struct{}
+
+func (h *fakeFailureHandler) Do(context.Context, *v1alpha1.IAMRequestWrapper) ([]*v1alpha1.IAMResponse, error) {
+	return nil, fmt.Errorf("always fail")
 }

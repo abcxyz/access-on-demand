@@ -30,8 +30,8 @@ import (
 
 var _ cli.Command = (*IAMHandleCommand)(nil)
 
-// Handler interface that handles the IAMRequestWrapper.
-type Handler interface {
+// iamHandler interface that handles the IAMRequestWrapper.
+type iamHandler interface {
 	Do(context.Context, *v1alpha1.IAMRequestWrapper) ([]*v1alpha1.IAMResponse, error)
 }
 
@@ -43,8 +43,10 @@ type IAMHandleCommand struct {
 
 	flagDuration time.Duration
 
+	// TODO(#13): add start time flag.
+
 	// testHandler is used for testing only.
-	testHandler Handler
+	testHandler iamHandler
 }
 
 func (c *IAMHandleCommand) Desc() string {
@@ -57,7 +59,7 @@ Usage: {{ COMMAND }} [options]
 
 Handle the IAM request YAML file in the given path:
 
-      aod iam handle -path "/path/to/file" -duration "2h"
+      aod iam handle -path "/path/to/file.yaml" -duration "2h"
 `
 }
 
@@ -70,8 +72,8 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 	f.StringVar(&cli.StringVar{
 		Name:    "path",
 		Target:  &c.flagPath,
-		Example: "/path/to/file",
-		Usage:   `The path of IAM request file.`,
+		Example: "/path/to/file.yaml",
+		Usage:   `The path of IAM request file, in YAML format.`,
 	})
 
 	f.DurationVar(&cli.DurationVar{
@@ -91,7 +93,7 @@ func (c *IAMHandleCommand) Run(ctx context.Context, args []string) error {
 	}
 	args = f.Args()
 	if len(args) > 0 {
-		return fmt.Errorf("unexpected arguments: %v", args)
+		return fmt.Errorf("unexpected arguments: %q", args)
 	}
 
 	if c.flagPath == "" {
@@ -107,18 +109,19 @@ func (c *IAMHandleCommand) Run(ctx context.Context, args []string) error {
 
 func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 	// Unmarshal the YAML file to IAMRequest
+	// TODO(#14): use limit reader.
 	data, err := os.ReadFile(c.flagPath)
 	if err != nil {
-		return fmt.Errorf("failed to read file from %q, %w", c.flagPath, err)
+		return fmt.Errorf("failed to read IAM request file at %q, %w", c.flagPath, err)
 	}
-	var req *v1alpha1.IAMRequest
+	var req v1alpha1.IAMRequest
 	if err := yaml.Unmarshal(data, &req); err != nil {
-		return fmt.Errorf("failed to unmarshal yaml to IAMRequest: %w", err)
+		return fmt.Errorf("failed to unmarshal yaml to %T: %w", req, err)
 	}
 
-	var h Handler
+	var h iamHandler
 	if c.testHandler != nil {
-		// Use testHandler is it is for testing.
+		// Use testHandler if it is for testing.
 		h = c.testHandler
 	} else {
 		// Create resource manager clients.
@@ -154,9 +157,10 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 
 	// Wrap IAMRequest to include Duration.
 	reqWrapper := &v1alpha1.IAMRequestWrapper{
-		IAMRequest: req,
+		IAMRequest: &req,
 		Duration:   c.flagDuration,
 	}
+	// TODO(#15): add a log level to output handler response.
 	if _, err := h.Do(ctx, reqWrapper); err != nil {
 		return fmt.Errorf("failed to handle IAM request: %w", err)
 	}
