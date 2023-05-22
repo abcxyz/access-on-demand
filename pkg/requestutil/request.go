@@ -24,6 +24,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ReadFromPath reads a YAML file at the given path and unmarshal it to
+// IAMRequest.
 func ReadFromPath(path string) (*v1alpha1.IAMRequest, error) {
 	f, err := os.Open(path)
 	if err != nil {
