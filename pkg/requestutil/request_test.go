@@ -64,15 +64,13 @@ policies:
 	}
 
 	cases := []struct {
-		name     string
-		path     string
-		expReq   *v1alpha1.IAMRequest
-		expErr   string
+		name, path, expErr string
+		expReq             *v1alpha1.IAMRequest
 	}{
 		{
-			name:    "success",
-			path:    filepath.Join(dir, "valid.yaml"),
-			expReq:  &v1alpha1.IAMRequest{
+			name: "success",
+			path: filepath.Join(dir, "valid.yaml"),
+			expReq: &v1alpha1.IAMRequest{
 				ResourcePolicies: []*v1alpha1.ResourcePolicy{
 					{
 						Resource: "organizations/foo",
@@ -119,14 +117,14 @@ policies:
 			},
 		},
 		{
-			name:    "invalid_path",
-			path:    "foo",
-			expErr:  `failed to read file at "foo"`,
+			name:   "invalid_path",
+			path:   "foo",
+			expErr: `failed to read file at "foo"`,
 		},
 		{
-			name:    "invalid_yaml",
-			path:    filepath.Join(dir, "invalid.yaml"),
-			expErr:  "failed to unmarshal yaml to v1alpha1.IAMRequest",
+			name:   "invalid_yaml",
+			path:   filepath.Join(dir, "invalid.yaml"),
+			expErr: "failed to unmarshal yaml to v1alpha1.IAMRequest",
 		},
 	}
 

@@ -40,7 +40,7 @@ policies:
     - user:test-org-userB@example.com
     role: roles/cloudkms.cryptoOperator
 `,
-	"invalid-request.yaml": `
+		"invalid-request.yaml": `
 policies:
 - resource: organizations/foo
   bindings:
@@ -67,29 +67,29 @@ policies:
 		expErr   string
 	}{
 		{
-			name:    "success",
-			args:    []string{"-path", filepath.Join(dir, "valid-request.yaml")},
-			expOut:  "Successfully validated IAM request",
+			name:   "success",
+			args:   []string{"-path", filepath.Join(dir, "valid-request.yaml")},
+			expOut: "Successfully validated IAM request",
 		},
 		{
-			name:    "invalid_yaml",
-			args:    []string{"-path", filepath.Join(dir, "invalid-yaml")},
-			expErr:  "failed to read *v1alpha1.IAMRequest",
+			name:   "invalid_yaml",
+			args:   []string{"-path", filepath.Join(dir, "invalid-yaml")},
+			expErr: "failed to read *v1alpha1.IAMRequest",
 		},
 		{
-			name:    "invalid_request",
-			args:    []string{"-path", filepath.Join(dir, "invalid-request.yaml")},
-			expErr:  "failed to validate *v1alpha1.IAMRequest",
+			name:   "invalid_request",
+			args:   []string{"-path", filepath.Join(dir, "invalid-request.yaml")},
+			expErr: "failed to validate *v1alpha1.IAMRequest",
 		},
 		{
-			name:    "unexpected_args",
-			args:    []string{"foo"},
-			expErr:  `unexpected arguments: ["foo"]`,
+			name:   "unexpected_args",
+			args:   []string{"foo"},
+			expErr: `unexpected arguments: ["foo"]`,
 		},
 		{
-			name:    "missing_path",
-			args:    []string{},
-			expErr:  `path is required`,
+			name:   "missing_path",
+			args:   []string{},
+			expErr: `path is required`,
 		},
 	}
 
