@@ -22,7 +22,6 @@ import (
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestIAMValidateCommand(t *testing.T) {
@@ -139,7 +138,7 @@ policies:
 				t.Errorf("Process(%+v) got error diff (-want, +got):\n%s", tc.name, diff)
 			}
 
-			if diff := cmp.Diff(tc.expReq, req, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.expReq, req); diff != "" {
 				t.Errorf("Process(%+v) got request diff (-want, +got): %v", tc.name, diff)
 			}
 		})

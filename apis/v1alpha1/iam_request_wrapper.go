@@ -25,4 +25,8 @@ type IAMRequestWrapper struct {
 	// Duration feild used as IAM binding condition to specify expiration.
 	// This will not override role bindings with no conditions.
 	Duration time.Duration
+
+	// Start time of the IAM permission lifecycle, StartTime + Duration is when
+	// the permission will expire.
+	StartTime time.Time
 }

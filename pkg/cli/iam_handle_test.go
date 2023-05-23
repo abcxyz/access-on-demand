@@ -27,7 +27,6 @@ import (
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestIAMHandleCommand(t *testing.T) {
@@ -115,6 +114,8 @@ policies:
 		},
 	}
 
+	st := time.Now().UTC().Round(time.Second)
+
 	cases := []struct {
 		name     string
 		args     []string
@@ -126,12 +127,13 @@ policies:
 	}{
 		{
 			name:    "success",
-			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h"},
+			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h", "-start-time", st.Format(time.RFC3339)},
 			handler: &fakeIAMHandler{},
 			expOut:  "Successfully handled IAM request",
 			expReq: &v1alpha1.IAMRequestWrapper{
 				IAMRequest: validRequest,
 				Duration:   2 * time.Hour,
+				StartTime:  st,
 			},
 		},
 		{
@@ -159,6 +161,18 @@ policies:
 			expErr:  "a positive duration is required",
 		},
 		{
+			name:    "invalid_start_time",
+			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h", "-start-time", "2009"},
+			handler: &fakeIAMHandler{},
+			expErr:  "failed to parse flags",
+		},
+		{
+			name:    "expiry_passed",
+			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h", "-start-time", "2009-11-10T23:00:00Z"},
+			handler: &fakeIAMHandler{},
+			expErr:  "expiry (start time + duration) already passed",
+		},
+		{
 			name:    "invalid_yaml",
 			args:    []string{"-path", filepath.Join(dir, "invalid.yaml"), "-duration", "2h"},
 			handler: &fakeIAMHandler{},
@@ -166,7 +180,7 @@ policies:
 		},
 		{
 			name: "handler_failure",
-			args: []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "1h"},
+			args: []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "1h", "-start-time", st.Format(time.RFC3339)},
 			handler: &fakeIAMHandler{
 				injectErr: fmt.Errorf("injected error"),
 			},
@@ -174,6 +188,7 @@ policies:
 			expReq: &v1alpha1.IAMRequestWrapper{
 				IAMRequest: validRequest,
 				Duration:   1 * time.Hour,
+				StartTime:  st,
 			},
 		},
 	}
@@ -199,7 +214,7 @@ policies:
 			if diff := cmp.Diff(strings.TrimSpace(tc.expOut), strings.TrimSpace(stdout.String())); diff != "" {
 				t.Errorf("Process(%+v) got output diff (-want, +got):\n%s", tc.name, diff)
 			}
-			if diff := cmp.Diff(tc.expReq, tc.handler.gotReq, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.expReq, tc.handler.gotReq); diff != "" {
 				t.Errorf("Process(%+v) got request diff (-want, +got):\n%s", tc.name, diff)
 			}
 		})

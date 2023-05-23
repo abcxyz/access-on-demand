@@ -42,7 +42,7 @@ type IAMHandleCommand struct {
 
 	flagDuration time.Duration
 
-	// TODO(#13): add start time flag.
+	flagStartTime time.Time
 
 	// testHandler is used for testing only.
 	testHandler iamHandler
@@ -58,7 +58,7 @@ Usage: {{ COMMAND }} [options]
 
 Handle the IAM request YAML file in the given path:
 
-      aod iam handle -path "/path/to/file.yaml" -duration "2h"
+      aod iam handle -path "/path/to/file.yaml" -duration "2h" -start-time "2009-11-10T23:00:00Z"
 `
 }
 
@@ -82,7 +82,27 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 		Usage:   `The IAM permission lifecycle, as a duration.`,
 	})
 
+	cli.Flag(f, &cli.Var[time.Time]{
+		Name:    "start-time",
+		Usage:   `The start time of the IAM permission lifecycle in RFC3339 format. Default is current UTC time.`,
+		Example: "2009-11-10T23:00:00Z",
+		Default: time.Now().UTC(),
+		Target:  &c.flagStartTime,
+		Parser:  timeParser,
+		Printer: timePrinter,
+	})
+
 	return set
+}
+
+// Parse the string representation of time, it must be in RFC3339 format.
+func timeParser(s string) (time.Time, error) {
+	return time.Parse(time.RFC3339, s)
+}
+
+// Print time in RFC3339 format.
+func timePrinter(t time.Time) string {
+	return t.Format(time.RFC3339)
 }
 
 func (c *IAMHandleCommand) Run(ctx context.Context, args []string) error {
@@ -101,6 +121,10 @@ func (c *IAMHandleCommand) Run(ctx context.Context, args []string) error {
 
 	if c.flagDuration <= 0 {
 		return fmt.Errorf("a positive duration is required")
+	}
+
+	if c.flagStartTime.Add(c.flagDuration).Before(time.Now()) {
+		return fmt.Errorf("expiry (start time + duration) already passed")
 	}
 
 	return c.handleIAM(ctx)
@@ -153,6 +177,7 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 	reqWrapper := &v1alpha1.IAMRequestWrapper{
 		IAMRequest: req,
 		Duration:   c.flagDuration,
+		StartTime:  c.flagStartTime,
 	}
 	// TODO(#15): add a log level to output handler response.
 	if _, err := h.Do(ctx, reqWrapper); err != nil {
