@@ -25,7 +25,7 @@ import (
 // rootCmd defines the starting command structure.
 var rootCmd = func() cli.Command {
 	return &cli.RootCommand{
-		Name: "aod",
+		Name:    "aod",
 		Version: version.HumanVersion,
 		Commands: map[string]cli.CommandFactory{
 			"iam": func() cli.Command {
