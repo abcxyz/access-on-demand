@@ -101,7 +101,8 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
-				Duration: 2 * time.Hour,
+				Duration:  2 * time.Hour,
+				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
@@ -262,7 +263,8 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
-				Duration: 2 * time.Hour,
+				Duration:  2 * time.Hour,
+				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
@@ -359,7 +361,8 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
-				Duration: 2 * time.Hour,
+				Duration:  2 * time.Hour,
+				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
@@ -450,7 +453,8 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
-				Duration: 2 * time.Hour,
+				Duration:  2 * time.Hour,
+				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
@@ -548,7 +552,8 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
-				Duration: 2 * time.Hour,
+				Duration:  2 * time.Hour,
+				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
@@ -626,7 +631,8 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
-				Duration: 1 * time.Hour,
+				Duration:  1 * time.Hour,
+				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
