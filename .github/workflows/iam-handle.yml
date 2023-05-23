@@ -1,0 +1,58 @@
+name: 'aod-iam-handle'
+on:
+  workflow_call:
+    inputs:
+      workload_identity_provider:
+        description: 'The full identifier of the Workload Identity Provider, including the project number, pool name, and provider name.'
+        type: 'string'
+        required: true
+      service_account:
+        description: 'Email address or unique identifier of the Google Cloud service account for which to generate credentials.'
+        type: 'string'
+        required: true
+      path:
+        description: 'The path to a YAML file that contains the IAM request.'
+        type: 'string'
+        required: true
+      start_time:
+        description: 'The start time of the IAM permission lifecycle.'
+        type: 'string'
+        required: true
+      duration:
+        description: 'The IAM permission lifecycle, as a duration.'
+        type: 'string'
+        required: true
+      go_version:
+        description: 'The version of Golang.'
+        type: 'string'
+        required: true
+
+jobs:
+  handle:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    name: 'Handle IAM Request'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab' # ratchet:actions/checkout@v3
+        with:
+          fetch-depth: 0 # OR "2" -> To retrieve the preceding commit.
+      - id: 'setup-go'
+        uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
+        with:
+          go-version: ${{ inputs.go_version }}
+      - name: 'Authenticate to Google Cloud'
+        id: 'auth'
+        uses: 'google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033' # ratchet:google-github-actions/auth@v1
+        with:
+          workload_identity_provider: '${{ inputs.workload_identity_provider }}'
+          service_account: '${{ inputs.service_account }}'
+          token_format: 'access_token'
+      - id: 'install-aodctl'
+        shell: 'bash'
+        run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@latest'
+      - id: 'run-handle'
+        shell: 'bash'
+        run: 'aod iam handle -path ${{ inputs.path }} -duration ${{ inputs.duration }} -start_time ${{ inputs.start_time }}'
