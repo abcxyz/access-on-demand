@@ -84,8 +84,9 @@ func NewIAMHandler(ctx context.Context, organizationsClient, foldersClient, proj
 
 // Do removes expired or duplicative IAM bindings added by AOD and adds requested IAM bindings to current IAM policy.
 func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps []*v1alpha1.IAMResponse, retErr error) {
+	expiry := r.StartTime.Add(r.Duration)
 	for _, p := range r.ResourcePolicies {
-		np, err := h.handlePolicy(ctx, p, r.Duration)
+		np, err := h.handlePolicy(ctx, p, expiry)
 		if err != nil {
 			retErr = errors.Join(
 				retErr,
@@ -99,7 +100,7 @@ func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps
 	return
 }
 
-func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, ttl time.Duration) (*v1alpha1.IAMResponse, error) {
+func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, expiry time.Time) (*v1alpha1.IAMResponse, error) {
 	var iamC IAMClient
 	switch strings.Split(p.Resource, "/")[0] {
 	case "organizations":
@@ -121,7 +122,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 		}
 
 		// Update the policy with new IAM binding additions.
-		updatePolicy(cp, p.Bindings, ttl)
+		updatePolicy(cp, p.Bindings, expiry)
 
 		// Set the new policy.
 		setIamPolicyRequest := &iampb.SetIamPolicyRequest{
@@ -143,7 +144,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 }
 
 // Remove expired bindings and add or update new bindings with expiration condition.
-func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
+func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
 	// Convert new bindings to a role to unique bindings map.
 	bsMap := toBindingsMap(bs)
 	// Clean up current policy bindings.
@@ -174,7 +175,7 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, ttl time.Duration) {
 	p.Bindings = result
 
 	// Add new bindings with expiration condition.
-	t := time.Now().UTC().Add(ttl).Format(time.RFC3339)
+	t := expiry.Format(time.RFC3339)
 	for r, ms := range bsMap {
 		newBinding := &iampb.Binding{
 			Condition: &expr.Expr{
