@@ -97,7 +97,11 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 
 // Parse the string representation of time, it must be in RFC3339 format.
 func timeParser(s string) (time.Time, error) {
-	return time.Parse(time.RFC3339, s)
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return t, fmt.Errorf("failed to parse the time with RFC3339 layout: %w", err)
+	}
+	return t, nil
 }
 
 // Print time in RFC3339 format.
