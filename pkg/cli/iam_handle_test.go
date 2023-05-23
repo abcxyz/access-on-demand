@@ -164,7 +164,7 @@ policies:
 			name:    "invalid_start_time",
 			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h", "-start-time", "2009"},
 			handler: &fakeIAMHandler{},
-			expErr:  "failed to parse flags",
+			expErr:  `failed to parse "2009" with RFC3339 layout`,
 		},
 		{
 			name:    "expiry_passed",

@@ -99,7 +99,7 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 func timeParser(s string) (time.Time, error) {
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
-		return t, fmt.Errorf("failed to parse the time with RFC3339 layout: %w", err)
+		return t, fmt.Errorf("failed to parse %q with RFC3339 layout: %w", s, err)
 	}
 	return t, nil
 }
