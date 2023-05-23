@@ -162,7 +162,7 @@ policies:
 			name:    "invalid_yaml",
 			args:    []string{"-path", filepath.Join(dir, "invalid.yaml"), "-duration", "2h"},
 			handler: &fakeIAMHandler{},
-			expErr:  "failed to unmarshal yaml to v1alpha1.IAMRequest",
+			expErr:  "failed to read *v1alpha1.IAMRequest",
 		},
 		{
 			name: "handler_failure",

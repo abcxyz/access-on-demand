@@ -17,13 +17,12 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/access-on-demand/pkg/handler"
+	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
-	"gopkg.in/yaml.v3"
 
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
@@ -108,15 +107,10 @@ func (c *IAMHandleCommand) Run(ctx context.Context, args []string) error {
 }
 
 func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
-	// Unmarshal the YAML file to IAMRequest
-	// TODO(#14): use limit reader.
-	data, err := os.ReadFile(c.flagPath)
+	// Read request from file path.
+	req, err := requestutil.ReadFromPath(c.flagPath)
 	if err != nil {
-		return fmt.Errorf("failed to read IAM request file at %q, %w", c.flagPath, err)
-	}
-	var req v1alpha1.IAMRequest
-	if err := yaml.Unmarshal(data, &req); err != nil {
-		return fmt.Errorf("failed to unmarshal yaml to %T: %w", req, err)
+		return fmt.Errorf("failed to read %T: %w", req, err)
 	}
 
 	var h iamHandler
@@ -157,7 +151,7 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 
 	// Wrap IAMRequest to include Duration.
 	reqWrapper := &v1alpha1.IAMRequestWrapper{
-		IAMRequest: &req,
+		IAMRequest: req,
 		Duration:   c.flagDuration,
 	}
 	// TODO(#15): add a log level to output handler response.
