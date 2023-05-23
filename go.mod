@@ -3,8 +3,8 @@ module github.com/abcxyz/access-on-demand
 go 1.20
 
 require (
-	cloud.google.com/go/iam v0.12.0
-	cloud.google.com/go/resourcemanager v1.5.0
+	cloud.google.com/go/iam v0.13.0
+	cloud.google.com/go/resourcemanager v1.7.0
 	github.com/abcxyz/pkg v0.3.1-0.20230410214104-4b190bd00925
 	github.com/google/go-cmp v0.5.9
 	github.com/googleapis/gax-go/v2 v2.8.0
@@ -25,7 +25,6 @@ require (
 require (
 	cloud.google.com/go v0.110.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	cloud.google.com/go/longrunning v0.4.1 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/goccy/go-json v0.10.1 // indirect
