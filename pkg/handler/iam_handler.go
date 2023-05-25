@@ -122,6 +122,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 			// in the requested policy.
 			// Note that if the requested policy does not contain conditional IAM
 			// bindings it will return the policy as is, which is version 1.
+			// See details here: https://cloud.google.com/iam/docs/policies#specifying-version-get
 			Options: &iampb.GetPolicyOptions{
 				RequestedPolicyVersion: 3,
 			},
@@ -202,6 +203,7 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
 	}
 
 	// Set policy version to 3 to support conditional IAM bindings.
+	// See details here: https://cloud.google.com/iam/docs/policies#specifying-version-set
 	p.Version = 3
 }
 
