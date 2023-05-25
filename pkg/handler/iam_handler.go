@@ -116,7 +116,17 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 	var np *iampb.Policy
 	if err := retry.Do(ctx, h.retry, func(ctx context.Context) error {
 		// Get current IAM policy.
-		cp, err := iamC.GetIamPolicy(ctx, &iampb.GetIamPolicyRequest{Resource: p.Resource})
+		getIAMPolicyRequest := &iampb.GetIamPolicyRequest{
+			Resource: p.Resource,
+			// Set required policy version to 3 to support conditional IAM bindings
+			// in the requested policy.
+			// Note that if the requested policy does not contain conditional IAM
+			// bindings it will return the policy as is, which is version 1.
+			Options: &iampb.GetPolicyOptions{
+				RequestedPolicyVersion: 3,
+			},
+		}
+		cp, err := iamC.GetIamPolicy(ctx, getIAMPolicyRequest)
 		if err != nil {
 			return fmt.Errorf("failed to get IAM policy: %w", err)
 		}
@@ -125,11 +135,11 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 		updatePolicy(cp, p.Bindings, expiry)
 
 		// Set the new policy.
-		setIamPolicyRequest := &iampb.SetIamPolicyRequest{
+		setIAMPolicyRequest := &iampb.SetIamPolicyRequest{
 			Resource: p.Resource,
 			Policy:   cp,
 		}
-		np, err = iamC.SetIamPolicy(ctx, setIamPolicyRequest)
+		np, err = iamC.SetIamPolicy(ctx, setIAMPolicyRequest)
 		// Retry when set IAM policy fail.
 		// TODO(#8): Look for specific errors to retry.
 		if err != nil {
@@ -190,6 +200,9 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
 		sort.Strings(newBinding.Members)
 		p.Bindings = append(p.Bindings, newBinding)
 	}
+
+	// Set policy version to 3 to support conditional IAM bindings.
+	p.Version = 3
 }
 
 func toBindingsMap(bs []*v1alpha1.Binding) map[string]map[string]struct{} {
