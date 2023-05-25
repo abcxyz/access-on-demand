@@ -1,4 +1,8 @@
 name: 'aod-iam-handle'
+# TODO(#30): Support pull_request labeled triggering event. Current workflow
+# requires the triggering event must be pull_request_review as it relies on this
+# event to get the review status and approval submit time as IAM permission
+# expiration start time.
 on:
   workflow_call:
     inputs:
@@ -10,49 +14,57 @@ on:
         description: 'Email address or unique identifier of the Google Cloud service account for which to generate credentials.'
         type: 'string'
         required: true
-      path:
-        description: 'The path to a YAML file that contains the IAM request.'
+      aod_cli_version:
+        description: 'The version of AOD CLI.'
         type: 'string'
-        required: true
-      start_time:
-        description: 'The start time of the IAM permission lifecycle.'
-        type: 'string'
-        required: true
-      duration:
-        description: 'The IAM permission lifecycle, as a duration.'
-        type: 'string'
-        required: true
+        default: 'latest'
+        required: false
       go_version:
         description: 'The version of Golang.'
         type: 'string'
-        required: true
+        default: '1.20'
+        required: false
 
 jobs:
   handle:
+    # Only handle the request when the PR is approved.
+    if: github.event.review.state == 'approved'
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
       id-token: 'write'
     name: 'Handle IAM Request'
     steps:
-      - name: 'Checkout'
+      - name: 'Checkout Triggering Branch'
         uses: 'actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab' # ratchet:actions/checkout@v3
         with:
-          fetch-depth: 0 # OR "2" -> To retrieve the preceding commit.
-      - id: 'setup-go'
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: 'Setup Go'
         uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
         with:
           go-version: ${{ inputs.go_version }}
       - name: 'Authenticate to Google Cloud'
-        id: 'auth'
         uses: 'google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033' # ratchet:google-github-actions/auth@v1
         with:
           workload_identity_provider: '${{ inputs.workload_identity_provider }}'
           service_account: '${{ inputs.service_account }}'
           token_format: 'access_token'
-      - id: 'install-aodctl'
+      - name: 'Install AOD CLI'
+        run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
+      - name: 'Get Duration From Label'
         shell: 'bash'
-        run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@latest'
-      - id: 'run-handle'
+        run: |
+          names='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          for name in $(echo "$names" | jq -r '.[]'); do
+            if [[ $name == duration-* ]]; then
+              IFS='-' read -r part1 part2 <<< "$name"
+              echo "DURATION=$part2" >> $GITHUB_ENV
+              break
+            fi
+          done
+      - name: 'Run AOD CLI'
         shell: 'bash'
-        run: 'aod iam handle -path ${{ inputs.path }} -duration ${{ inputs.duration }} -start_time ${{ inputs.start_time }}'
+        env:
+          FILE_PATH: ${{ github.workspace }}/iam.yaml
+          START_TIME: ${{ github.event.review.submitted_at }}
+        run: 'aod iam handle -path $FILE_PATH -duration ${{ env.DURATION }} -start-time $START_TIME'
