@@ -121,6 +121,7 @@ func TestDo(t *testing.T) {
 								},
 							},
 						},
+						Version: 3,
 					},
 				},
 				{
@@ -138,6 +139,7 @@ func TestDo(t *testing.T) {
 								},
 							},
 						},
+						Version: 3,
 					},
 				},
 				{
@@ -155,6 +157,7 @@ func TestDo(t *testing.T) {
 								},
 							},
 						},
+						Version: 3,
 					},
 				},
 			},
@@ -172,6 +175,7 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
+				Version: 3,
 			},
 			wantFoldersPolicy: &iampb.Policy{
 				Bindings: []*iampb.Binding{
@@ -186,6 +190,7 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
+				Version: 3,
 			},
 			wantProjectsPolicy: &iampb.Policy{
 				Bindings: []*iampb.Binding{
@@ -200,6 +205,7 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
+				Version: 3,
 			},
 		},
 		{
@@ -293,6 +299,7 @@ func TestDo(t *testing.T) {
 								},
 							},
 						},
+						Version: 3,
 					},
 				},
 			},
@@ -320,6 +327,7 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
+				Version: 3,
 			},
 			wantFoldersPolicy:  &iampb.Policy{},
 			wantProjectsPolicy: &iampb.Policy{},
@@ -386,6 +394,7 @@ func TestDo(t *testing.T) {
 								},
 							},
 						},
+						Version: 3,
 					},
 				},
 			},
@@ -409,6 +418,7 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
+				Version: 3,
 			},
 			wantProjectsPolicy: &iampb.Policy{},
 		},
@@ -482,6 +492,7 @@ func TestDo(t *testing.T) {
 								},
 							},
 						},
+						Version: 3,
 					},
 				},
 			},
@@ -510,6 +521,7 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
+				Version: 3,
 			},
 		},
 		{
@@ -571,6 +583,7 @@ func TestDo(t *testing.T) {
 								},
 							},
 						},
+						Version: 3,
 					},
 				},
 			},
@@ -590,6 +603,7 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
+				Version: 3,
 			},
 		},
 		{
@@ -650,6 +664,7 @@ func TestDo(t *testing.T) {
 								},
 							},
 						},
+						Version: 3,
 					},
 				},
 			},
@@ -668,6 +683,7 @@ func TestDo(t *testing.T) {
 						},
 					},
 				},
+				Version: 3,
 			},
 			wantProjectsPolicy: &iampb.Policy{},
 		},
