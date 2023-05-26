@@ -21,6 +21,7 @@ import (
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
+	"github.com/posener/complete/v2/predict"
 )
 
 var _ cli.Command = (*IAMValidateCommand)(nil)
@@ -56,6 +57,7 @@ func (c *IAMValidateCommand) Flags() *cli.FlagSet {
 		Name:    "path",
 		Target:  &c.flagPath,
 		Example: "/path/to/file.yaml",
+		Predict: predict.Files("*"),
 		Usage:   `The path of IAM request file, in YAML format.`,
 	})
 
