@@ -23,6 +23,7 @@ import (
 	"github.com/abcxyz/access-on-demand/pkg/handler"
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
+	"github.com/posener/complete/v2/predict"
 
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
@@ -72,6 +73,7 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 		Name:    "path",
 		Target:  &c.flagPath,
 		Example: "/path/to/file.yaml",
+		Predict: predict.Files("*"),
 		Usage:   `The path of IAM request file, in YAML format.`,
 	})
 
@@ -82,31 +84,16 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 		Usage:   `The IAM permission lifecycle, as a duration.`,
 	})
 
-	cli.Flag(f, &cli.Var[time.Time]{
+	f.TimeVar(time.RFC3339, &cli.TimeVar{
 		Name:    "start-time",
-		Usage:   `The start time of the IAM permission lifecycle in RFC3339 format. Default is current UTC time.`,
+		Target:  &c.flagStartTime,
 		Example: "2009-11-10T23:00:00Z",
 		Default: time.Now().UTC(),
-		Target:  &c.flagStartTime,
-		Parser:  timeParser,
-		Printer: timePrinter,
+		Usage: `The start time of the IAM permission lifecycle in RFC3339 format. ` +
+			`Default is current UTC time.`,
 	})
 
 	return set
-}
-
-// Parse the string representation of time, it must be in RFC3339 format.
-func timeParser(s string) (time.Time, error) {
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return t, fmt.Errorf("failed to parse %q with RFC3339 layout: %w", s, err)
-	}
-	return t, nil
-}
-
-// Print time in RFC3339 format.
-func timePrinter(t time.Time) string {
-	return t.Format(time.RFC3339)
 }
 
 func (c *IAMHandleCommand) Run(ctx context.Context, args []string) error {
