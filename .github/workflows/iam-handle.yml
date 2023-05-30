@@ -1,3 +1,17 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#      http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 name: 'aod-iam-handle'
 # TODO(#30): Support pull_request labeled triggering event. Current workflow
 # requires the triggering event must be pull_request_review as it relies on this
@@ -51,20 +65,20 @@ jobs:
           token_format: 'access_token'
       - name: 'Install AOD CLI'
         run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
+      # Duration labels need to be predixed with "duration-", an example is "duration-2h",
       - name: 'Get Duration From Label'
-        shell: 'bash'
         run: |
           names='${{ toJson(github.event.pull_request.labels.*.name) }}'
           for name in $(echo "$names" | jq -r '.[]'); do
             if [[ $name == duration-* ]]; then
               IFS='-' read -r part1 part2 <<< "$name"
-              echo "DURATION=$part2" >> $GITHUB_ENV
+              echo "LABELED_DURATION=$part2" >> $GITHUB_ENV
               break
             fi
           done
       - name: 'Run AOD CLI'
-        shell: 'bash'
         env:
+          DURATION: ${{ env.LABELED_DURATION ||'2h' }}
           FILE_PATH: ${{ github.workspace }}/iam.yaml
           START_TIME: ${{ github.event.review.submitted_at }}
-        run: 'aod iam handle -path $FILE_PATH -duration ${{ env.DURATION }} -start-time $START_TIME'
+        run: 'aod iam handle -path $FILE_PATH -duration $DURATION -start-time $START_TIME'
