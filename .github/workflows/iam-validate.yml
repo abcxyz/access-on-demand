@@ -16,18 +16,21 @@ name: 'aod-iam-validate'
 
 # Support pull request triggering event.
 on:
-  workflow_call:
-    inputs:
-      aod_cli_version:
-        description: 'The version of AOD CLI.'
-        type: 'string'
-        default: 'latest'
-        required: false
-      go_version:
-        description: 'The version of Golang.'
-        type: 'string'
-        default: '1.20'
-        required: false
+  push:
+    branches:
+      - 'sqin2019/issue31'
+  # workflow_call:
+  #   inputs:
+  #     aod_cli_version:
+  #       description: 'The version of AOD CLI.'
+  #       type: 'string'
+  #       default: 'latest'
+  #       required: false
+  #     go_version:
+  #       description: 'The version of Golang.'
+  #       type: 'string'
+  #       default: '1.20'
+  #       required: false
 
 jobs:
   validate:
@@ -37,14 +40,16 @@ jobs:
       - name: 'Checkout Triggering Branch'
         uses: 'actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab' # ratchet:actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          # ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.ref }}
       - name: 'Setup Go'
         uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
         with:
-          go-version: ${{ inputs.go_version }}
+          # go-version: ${{ inputs.go_version }}
+          go-version: '1.20'
       - name: 'Install AOD CLI'
-        run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
+        run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@latest'
       - name: 'Run AOD CLI'
         env:
-          FILE_PATH: ${{ github.workspace }}/iam.yaml
+          FILE_PATH: '${{ github.workspace }}/iam.yaml'
         run: 'aod iam validate -path $FILE_PATH'
