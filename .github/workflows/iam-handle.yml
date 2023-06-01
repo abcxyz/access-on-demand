@@ -39,6 +39,9 @@ on:
         default: '1.20'
         required: false
 
+env:
+  DEFAULT_DURATION: '2h'
+
 jobs:
   handle:
     # Only handle the request when the PR is approved.
@@ -78,7 +81,7 @@ jobs:
           done
       - name: 'Run AOD CLI'
         env:
-          DURATION: ${{ env.LABELED_DURATION || '2h' }}
+          DURATION: '${{ env.LABELED_DURATION || env.DEFAULT_DURATION }}'
           FILE_PATH: '${{ github.workspace }}/iam.yaml'
           START_TIME: '${{ github.event.review.submitted_at }}'
         run: 'aod iam handle -path $FILE_PATH -duration $DURATION -start-time $START_TIME'
