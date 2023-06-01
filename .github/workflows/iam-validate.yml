@@ -31,17 +31,17 @@ on:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: 'ubuntu-latest'
     name: 'Validate IAM Request'
     steps:
       - name: 'Checkout Triggering Branch'
         uses: 'actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab' # ratchet:actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: '${{ github.event.pull_request.head.ref }}'
       - name: 'Setup Go'
         uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
         with:
-          go-version: ${{ inputs.go_version }}
+          go-version: '${{ inputs.go_version }}'
       - name: 'Install AOD CLI'
         run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
       - name: 'Run AOD CLI'

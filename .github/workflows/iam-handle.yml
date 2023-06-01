@@ -43,7 +43,7 @@ jobs:
   handle:
     # Only handle the request when the PR is approved.
     if: github.event.review.state == 'approved'
-    runs-on: ubuntu-latest
+    runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -80,5 +80,5 @@ jobs:
         env:
           DURATION: ${{ env.LABELED_DURATION || '2h' }}
           FILE_PATH: '${{ github.workspace }}/iam.yaml'
-          START_TIME: ${{ github.event.review.submitted_at }}
+          START_TIME: '${{ github.event.review.submitted_at }}'
         run: 'aod iam handle -path $FILE_PATH -duration $DURATION -start-time $START_TIME'
