@@ -78,8 +78,7 @@ jobs:
           done
       - name: 'Run AOD CLI'
         env:
-          DEFAULT_DURATION: '2h'
-          DURATION: '${{ env.LABELED_DURATION || env.DEFAULT_DURATION }}'
+          DURATION: ${{ env.LABELED_DURATION || '2h' }}
           FILE_PATH: '${{ github.workspace }}/iam.yaml'
           START_TIME: '${{ github.event.review.submitted_at }}'
         run: 'aod iam handle -path $FILE_PATH -duration $DURATION -start-time $START_TIME'
