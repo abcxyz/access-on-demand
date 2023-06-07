@@ -128,6 +128,10 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 		return fmt.Errorf("failed to read %T: %w", req, err)
 	}
 
+	if err := v1alpha1.ValidateIAMRequest(req); err != nil {
+		return fmt.Errorf("failed to validate %T: %w", req, err)
+	}
+
 	var h iamHandler
 	if c.testHandler != nil {
 		// Use testHandler if it is for testing.
