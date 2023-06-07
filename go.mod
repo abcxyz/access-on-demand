@@ -5,7 +5,7 @@ go 1.20
 require (
 	cloud.google.com/go/iam v0.13.0
 	cloud.google.com/go/resourcemanager v1.7.0
-	github.com/abcxyz/pkg v0.3.1-0.20230526035441-066c75c92766
+	github.com/abcxyz/pkg v0.3.1-0.20230602004249-183769b67b2d
 	github.com/google/go-cmp v0.5.9
 	github.com/googleapis/gax-go/v2 v2.8.0
 	github.com/posener/complete/v2 v2.0.1-alpha.13

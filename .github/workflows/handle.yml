@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: 'aod-iam-handle'
+name: 'aod-handle'
 # TODO(#30): Support pull_request labeled triggering event. Current workflow
 # requires the triggering event must be pull_request_review as it relies on this
 # event to get the review status and approval submit time as IAM permission
@@ -45,12 +45,12 @@ env:
 jobs:
   handle:
     # Only handle the request when the PR is approved.
-    if: ${{ github.event.review.state == 'approved' }}
+    if: '${{ github.event.review.state == ''approved'' }}'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
       id-token: 'write'
-    name: 'Handle IAM Request'
+    name: 'Handle Request'
     steps:
       - name: 'Checkout Triggering Branch'
         uses: 'actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab' # ratchet:actions/checkout@v3
@@ -68,8 +68,10 @@ jobs:
           token_format: 'access_token'
       - name: 'Install AOD CLI'
         run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
-      # Duration labels need to be predixed with "duration-", an example is "duration-2h",
+      # Duration labels need to be prefixed with "duration-", an example is "duration-2h".
+      # Skip when iam.yaml file does not exist in the case of a pull_request_review event.
       - name: 'Get Duration From Label'
+        if: '${{ hashFiles(''iam.yaml'') != '''' }}'
         run: |
           names='${{ toJson(github.event.pull_request.labels.*.name) }}'
           for name in $(echo "$names" | jq -r '.[]'); do
@@ -79,9 +81,16 @@ jobs:
               break
             fi
           done
-      - name: 'Run AOD CLI'
+      # Request will not be handled when iam.yaml file does not exist in the
+      # case of a pull_request_review event, instead it prints out a notice.
+      - name: 'Handle IAM Request'
         env:
           DURATION: '${{ env.LABELED_DURATION || env.DEFAULT_DURATION }}'
           FILE_PATH: '${{ github.workspace }}/iam.yaml'
           START_TIME: '${{ github.event.review.submitted_at }}'
-        run: 'aod iam handle -path $FILE_PATH -duration $DURATION -start-time $START_TIME'
+        run: |
+          if [ -f "iam.yaml" ]; then
+            aod iam handle -path $FILE_PATH -duration $DURATION -start-time $START_TIME
+          else
+            echo "::notice title=IAM Request Handle::Skip because iam.yaml is not found"
+          fi
