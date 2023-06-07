@@ -50,7 +50,7 @@ jobs:
         env:
           FILE_PATH: '${{ github.workspace }}/iam.yaml'
         run: |
-          if [ -f "test-iam.yaml" ]; then
+          if [ -f "iam.yaml" ]; then
             aod iam validate -path $FILE_PATH
           else
             echo "::notice title=IAM Request Validation::Skip because iam.yaml is not found"
