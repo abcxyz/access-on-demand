@@ -57,6 +57,15 @@ policies:
       - user:test-project-user@example.com
       role: roles/bigquery.dataViewer
 `,
+		"invalid-request.yaml": `
+policies:
+- resource: organizations/foo
+  bindings:
+  - members:
+    - group:test-org-group@example.com
+    - user:test-org-userB@example.com
+    role: roles/cloudkms.cryptoOperator
+`,
 		"invalid.yaml": `bananas`,
 	}
 	dir := t.TempDir()
@@ -190,6 +199,12 @@ policies:
 				Duration:   1 * time.Hour,
 				StartTime:  st,
 			},
+		},
+		{
+			name:    "invalid_request",
+			args:    []string{"-path", filepath.Join(dir, "invalid-request.yaml"), "-duration", "2h", "-start-time", st.Format(time.RFC3339)},
+			handler: &fakeIAMHandler{},
+			expErr:  "failed to validate *v1alpha1.IAMRequest",
 		},
 	}
 
