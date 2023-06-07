@@ -14,7 +14,7 @@
 
 name: 'aod-validate'
 
-# Support pull request triggering event.
+# Support triggering events containing pull request such as pull_request and pull_request_review.
 on:
   workflow_call:
     inputs:
@@ -44,12 +44,14 @@ jobs:
           go-version: '${{ inputs.go_version }}'
       - name: 'Install AOD CLI'
         run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
-      - id: 'changed-file-iam'
-        uses: 'tj-actions/changed-files@84ed30e2f4daf616144de7e0c1db59d5b33025e3' # ratchet:tj-actions/changed-files@v35
-        with:
-          files: 'iam.yaml'
+      # Request will not be validated when iam.yaml file does not exist in the
+      # case of a pull_request_review event, instead it prints out a notice.
       - name: 'Validate IAM Request'
-        if: '${{ steps.changed-file-iam.outputs.any_changed == ''true''}}'
         env:
           FILE_PATH: '${{ github.workspace }}/iam.yaml'
-        run: 'aod iam validate -path $FILE_PATH'
+        run: |
+          if [ -f "test-iam.yaml" ]; then
+            aod iam validate -path $FILE_PATH
+          else
+            echo "::notice title=IAM Request Validation::Skip because iam.yaml is not found"
+          fi

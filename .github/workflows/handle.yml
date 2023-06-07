@@ -68,15 +68,10 @@ jobs:
           token_format: 'access_token'
       - name: 'Install AOD CLI'
         run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
-
-      # Start handling IAM request.
-      - id: 'changed-file-iam'
-        uses: 'tj-actions/changed-files@84ed30e2f4daf616144de7e0c1db59d5b33025e3' # ratchet:tj-actions/changed-files@v35
-        with:
-          files: 'iam.yaml'
-      # Duration labels need to be prefixed with "duration-", an example is "duration-2h",
+      # Duration labels need to be prefixed with "duration-", an example is "duration-2h".
+      # Skip when iam.yaml file does not exist in the case of a pull_request_review event.
       - name: 'Get Duration From Label'
-        if: '${{ steps.changed-file-iam.outputs.any_changed == ''true''}}'
+        if: '${{ hashFiles(''iam.yaml'') != '''' }}'
         run: |
           names='${{ toJson(github.event.pull_request.labels.*.name) }}'
           for name in $(echo "$names" | jq -r '.[]'); do
@@ -86,14 +81,16 @@ jobs:
               break
             fi
           done
+      # Request will not be handled when iam.yaml file does not exist in the
+      # case of a pull_request_review event, instead it prints out a notice.
       - name: 'Handle IAM Request'
-        if: '${{ steps.changed-file-iam.outputs.any_changed == ''true''}}'
         env:
           DURATION: '${{ env.LABELED_DURATION || env.DEFAULT_DURATION }}'
           FILE_PATH: '${{ github.workspace }}/iam.yaml'
           START_TIME: '${{ github.event.review.submitted_at }}'
-        run: 'aod iam handle -path $FILE_PATH -duration $DURATION -start-time $START_TIME'
-      - id: 'changed-file-gcloud'
-        uses: 'tj-actions/changed-files@84ed30e2f4daf616144de7e0c1db59d5b33025e3' # ratchet:tj-actions/changed-files@v35
-        with:
-          files: 'gcloud.yaml'
+        run: |
+          if [ -f "iam.yaml" ]; then
+            aod iam handle -path $FILE_PATH -duration $DURATION -start-time $START_TIME
+          else
+            echo "::notice title=IAM Request Handle::Skip because iam.yaml is not found"
+          fi
