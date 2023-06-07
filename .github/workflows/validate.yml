@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: 'aod-iam-validate'
+name: 'aod-validate'
 
 # Support pull request triggering event.
 on:
@@ -32,7 +32,7 @@ on:
 jobs:
   validate:
     runs-on: 'ubuntu-latest'
-    name: 'Validate IAM Request'
+    name: 'Validate Request'
     steps:
       - name: 'Checkout Triggering Branch'
         uses: 'actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab' # ratchet:actions/checkout@v3
@@ -44,7 +44,12 @@ jobs:
           go-version: '${{ inputs.go_version }}'
       - name: 'Install AOD CLI'
         run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
-      - name: 'Run AOD CLI'
+      - id: 'changed-file-iam'
+        uses: 'tj-actions/changed-files@84ed30e2f4daf616144de7e0c1db59d5b33025e3' # ratchet:tj-actions/changed-files@v35
+        with:
+          files: 'iam.yaml'
+      - name: 'Validate IAM Request'
+        if: '${{ steps.changed-file-iam.outputs.any_changed == ''true''}}'
         env:
           FILE_PATH: '${{ github.workspace }}/iam.yaml'
         run: 'aod iam validate -path $FILE_PATH'
