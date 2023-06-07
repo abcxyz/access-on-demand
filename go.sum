@@ -13,8 +13,8 @@ cloud.google.com/go/longrunning v0.4.1/go.mod h1:4iWDqhBZ70CvZ6BfETbvam3T8FMvLK+
 cloud.google.com/go/resourcemanager v1.7.0 h1:NRM0p+RJkaQF9Ee9JMnUV9BQ2QBIOq/v8M+Pbv/wmCs=
 cloud.google.com/go/resourcemanager v1.7.0/go.mod h1:HlD3m6+bwhzj9XCouqmeiGuni95NTrExfhoSrkC/3EI=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/abcxyz/pkg v0.3.1-0.20230526035441-066c75c92766 h1:/XORT0XkBoxn0KRr7SBrXzQ8vPz0Hj7uJEbXsqiUOkI=
-github.com/abcxyz/pkg v0.3.1-0.20230526035441-066c75c92766/go.mod h1:sff1Lb6nFm31g69Ussj9Hi96tSmzGqRcVAWKwUEjHd0=
+github.com/abcxyz/pkg v0.3.1-0.20230602004249-183769b67b2d h1:EokfqfS3to8GcZZNdJnPQdEWmWu+hXTaDHL9SI370kU=
+github.com/abcxyz/pkg v0.3.1-0.20230602004249-183769b67b2d/go.mod h1:sff1Lb6nFm31g69Ussj9Hi96tSmzGqRcVAWKwUEjHd0=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/benbjohnson/clock v1.3.0 h1:ip6w0uFQkncKQ979AypyG0ER7mqUSBdKLOgAle/AT8A=
 github.com/benbjohnson/clock v1.3.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
