@@ -43,9 +43,14 @@ env:
   DEFAULT_DURATION: '2h'
 
 jobs:
-  handle:
+  yaml_lint:
     # Only handle the request when the PR is approved.
     if: '${{ github.event.review.state == ''approved'' }}'
+    uses: 'abcxyz/pkg/.github/workflows/yaml-lint.yml@main' # ratchet:exclude
+
+  handle:
+    # Only run when yaml_lint is successfully completed.
+    needs: 'yaml_lint'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'

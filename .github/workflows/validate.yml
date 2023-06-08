@@ -30,7 +30,11 @@ on:
         required: false
 
 jobs:
+  yaml_lint:
+    uses: 'abcxyz/pkg/.github/workflows/yaml-lint.yml@main' # ratchet:exclude
+
   validate:
+    needs: 'yaml_lint'
     runs-on: 'ubuntu-latest'
     name: 'Validate Request'
     steps:
