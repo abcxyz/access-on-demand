@@ -44,6 +44,8 @@ env:
 
 jobs:
   handle:
+    # Only handle the request when the PR is approved.
+    if: '${{ github.event.review.state == ''approved'' }}'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
