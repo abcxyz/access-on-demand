@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -133,7 +134,9 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 		}
 
 		// Update the policy with new IAM binding additions.
-		updatePolicy(cp, p.Bindings, expiry)
+		if err := updatePolicy(cp, p.Bindings, expiry); err != nil {
+			return fmt.Errorf("failed to update IAM policy: %w", err)
+		}
 
 		// Set the new policy.
 		setIAMPolicyRequest := &iampb.SetIamPolicyRequest{
@@ -155,7 +158,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 }
 
 // Remove expired bindings and add or update new bindings with expiration condition.
-func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
+func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) error {
 	// Convert new bindings to a role to unique bindings map.
 	bsMap := toBindingsMap(bs)
 	// Clean up current policy bindings.
@@ -166,7 +169,17 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
 			result = append(result, cb)
 			continue
 		}
-		// TODO (#6): Remove expired bindings.
+
+		// Skip expired bindings.
+		expired, err := expired(cb.Condition.Expression)
+		if err != nil {
+			// Return error immediately since we don't expect this to fail.
+			return fmt.Errorf("failed to check expiry: %w", err)
+		}
+		if expired {
+			continue
+		}
+
 		// Skip roles we are not interested in.
 		if _, ok := bsMap[cb.Role]; !ok {
 			result = append(result, cb)
@@ -205,6 +218,7 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
 	// Set policy version to 3 to support conditional IAM bindings.
 	// See details here: https://cloud.google.com/iam/docs/policies#specifying-version-set
 	p.Version = 3
+	return nil
 }
 
 func toBindingsMap(bs []*v1alpha1.Binding) map[string]map[string]struct{} {
@@ -218,4 +232,18 @@ func toBindingsMap(bs []*v1alpha1.Binding) map[string]map[string]struct{} {
 		}
 	}
 	return result
+}
+
+func expired(exp string) (bool, error) {
+	// An valid expiration expression will look like "request.time < timestamp('2023-06-14T19:55:03Z')".
+	matches := regexp.MustCompile(`request.time < timestamp\('([^']+)'\)`).FindStringSubmatch(exp)
+	// Unable to find enough submatches.
+	if len(matches) < 2 {
+		return false, fmt.Errorf("expression %q does not match format %q", exp, "request.time < timestamp('2006-01-02T15:04:05Z07:00')")
+	}
+	t, err := time.Parse(time.RFC3339, matches[1])
+	if err != nil {
+		return false, fmt.Errorf("failed to parse expiration %q: %w", exp, err)
+	}
+	return t.Before(time.Now()), nil
 }
