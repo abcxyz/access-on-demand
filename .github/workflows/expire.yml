@@ -4,17 +4,17 @@ on:
   workflow_call:
     inputs:
       owner:
-        description: 'The GitHub org or repo owner.'
+        description: 'The GitHub organization or repository owner.'
         type: 'string'
         required: true
       repo:
-        description: 'The repo name.'
+        description: 'The repository name.'
         type: 'string'
         required: true
-      expiryDays:
-        description: 'The number of days to keep an AOD PR open since last updated.'
+      expiryHours:
+        description: 'The number of hours to keep an AOD PR open since last updated.'
         type: 'number'
-        default: 7
+        default: 24
         required: false
 
 permissions:
@@ -29,7 +29,7 @@ jobs:
           result-encoding: 'string'
           retries: 3
           script: |-
-            const cutoffMs = ${{ inputs.expiryDays }} * 24 * 60 * 60 * 1000
+            const cutoffMs = ${{ inputs.expiryHours }} * 60 * 60 * 1000
             const now = new Date();
             const pulls = await github.rest.pulls.list({
               owner: '${{ inputs.owner }}',
@@ -70,6 +70,6 @@ jobs:
                   state: 'closed',
                 });
               } else {
-                core.info(`Skipping #${pull['number']} (${pull['title']}) - is not an AOD request`);
+                core.info(`Skipping #${pull['number']} (${pull['title']}) - not an AOD request`);
               }
             });
