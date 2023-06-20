@@ -333,6 +333,210 @@ func TestDo(t *testing.T) {
 			wantProjectsPolicy: &iampb.Policy{},
 		},
 		{
+			name: "clean_up_expired_bindings",
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{
+					Bindings: []*iampb.Binding{
+						// Expired bindings to be removed.
+						{
+							Members: []string{
+								"user:test-org-userB@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+							Condition: &expr.Expr{
+								Title:      ConditionTitle,
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
+							},
+						},
+					},
+				},
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			request: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: &v1alpha1.IAMRequest{
+					ResourcePolicies: []*v1alpha1.ResourcePolicy{
+						{
+							Resource: "organizations/foo",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-org-userA@example.com",
+									},
+									Role: "roles/bigquery.dataViewer",
+								},
+							},
+						},
+					},
+				},
+				Duration:  2 * time.Hour,
+				StartTime: now,
+			},
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "organizations/foo",
+					Policy: &iampb.Policy{
+						Bindings: []*iampb.Binding{
+							{
+								Members: []string{
+									"user:test-org-userA@example.com",
+								},
+								Role: "roles/bigquery.dataViewer",
+								Condition: &expr.Expr{
+									Title:      ConditionTitle,
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
+								},
+							},
+						},
+						Version: 3,
+					},
+				},
+			},
+			wantOrganizationsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-org-userA@example.com",
+						},
+						Role: "roles/bigquery.dataViewer",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
+						},
+					},
+				},
+				Version: 3,
+			},
+			wantFoldersPolicy:  &iampb.Policy{},
+			wantProjectsPolicy: &iampb.Policy{},
+		},
+		{
+			name: "failed_clean_up_expired_bindings_invalid_expression",
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{
+					Bindings: []*iampb.Binding{
+						{
+							Members: []string{
+								"user:test-org-userB@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+							Condition: &expr.Expr{
+								Title:      ConditionTitle,
+								Expression: fmt.Sprintf("request.time <= timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
+							},
+						},
+					},
+				},
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			request: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: &v1alpha1.IAMRequest{
+					ResourcePolicies: []*v1alpha1.ResourcePolicy{
+						{
+							Resource: "organizations/foo",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-org-userA@example.com",
+									},
+									Role: "roles/bigquery.dataViewer",
+								},
+							},
+						},
+					},
+				},
+				Duration:  2 * time.Hour,
+				StartTime: now,
+			},
+			wantErrSubstr: `does not match format "request.time < timestamp('YYYY-MM-DDTHH:MM:SSZ')"`,
+			wantOrganizationsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-org-userB@example.com",
+						},
+						Role: "roles/accessapproval.approver",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time <= timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
+						},
+					},
+				},
+			},
+			wantFoldersPolicy:  &iampb.Policy{},
+			wantProjectsPolicy: &iampb.Policy{},
+		},
+		{
+			name: "failed_clean_up_expired_bindings_wrong_expiration",
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{
+					Bindings: []*iampb.Binding{
+						{
+							Members: []string{
+								"user:test-org-userB@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+							Condition: &expr.Expr{
+								Title:      ConditionTitle,
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC850)),
+							},
+						},
+					},
+				},
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			request: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: &v1alpha1.IAMRequest{
+					ResourcePolicies: []*v1alpha1.ResourcePolicy{
+						{
+							Resource: "organizations/foo",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-org-userA@example.com",
+									},
+									Role: "roles/bigquery.dataViewer",
+								},
+							},
+						},
+					},
+				},
+				Duration:  2 * time.Hour,
+				StartTime: now,
+			},
+			wantErrSubstr: "failed to parse expiration",
+			wantOrganizationsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-org-userB@example.com",
+						},
+						Role: "roles/accessapproval.approver",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC850)),
+						},
+					},
+				},
+			},
+			wantFoldersPolicy:  &iampb.Policy{},
+			wantProjectsPolicy: &iampb.Policy{},
+		},
+		{
 			name: "ignore_non-AOD_bindings",
 			organizationsServer: &fakeServer{
 				policy: &iampb.Policy{},
