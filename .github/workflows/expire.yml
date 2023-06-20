@@ -7,7 +7,7 @@ on:
         description: 'The owner and repository name. For example, Codertocat/Hello-World'
         type: 'string'
         required: true
-      expiryHours:
+      expiry_hours:
         description: 'The number of hours to keep an AOD PR open since last updated.'
         type: 'number'
         default: 24
@@ -31,7 +31,7 @@ jobs:
             }
             const repoOwner = parts[0]
             const repoName = parts[1]
-            const cutoffMs = ${{ inputs.expiryHours }} * 60 * 60 * 1000
+            const cutoffMs = ${{ inputs.expiry_hours }} * 60 * 60 * 1000
             const now = new Date();
             const pulls = await github.rest.pulls.list({
               owner: repoOwner,
