@@ -25,8 +25,12 @@ jobs:
           result-encoding: 'string'
           retries: 3
           script: |-
-            const repoOwner = String('${{ inputs.repo }}').split('/')[0]
-            const repoName = String('${{ inputs.repo }}').split('/')[1]
+            const parts = String('${{ inputs.repo }}').split('/')
+            if (parts.length != 2) {
+              core.setFailed(`Input repo "${{ inputs.repo }}" is not in the right format "<owner>/<name>"`);
+            }
+            const repoOwner = parts[0]
+            const repoName = parts[1]
             const cutoffMs = ${{ inputs.expiryHours }} * 60 * 60 * 1000
             const now = new Date();
             const pulls = await github.rest.pulls.list({
