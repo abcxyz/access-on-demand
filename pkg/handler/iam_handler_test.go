@@ -457,7 +457,7 @@ func TestDo(t *testing.T) {
 				Duration:  2 * time.Hour,
 				StartTime: now,
 			},
-			wantErrSubstr: `does not match format "request.time < timestamp('2006-01-02T15:04:05Z07:00')"`,
+			wantErrSubstr: `does not match format "request.time < timestamp('YYYY-MM-DDTHH:MM:SSZ')"`,
 			wantOrganizationsPolicy: &iampb.Policy{
 				Bindings: []*iampb.Binding{
 					{
