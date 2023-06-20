@@ -3,12 +3,8 @@ name: 'expire'
 on:
   workflow_call:
     inputs:
-      owner:
-        description: 'The GitHub organization or repository owner.'
-        type: 'string'
-        required: true
       repo:
-        description: 'The repository name.'
+        description: 'The owner and repository name. For example, Codertocat/Hello-World'
         type: 'string'
         required: true
       expiryHours:
@@ -29,11 +25,17 @@ jobs:
           result-encoding: 'string'
           retries: 3
           script: |-
+            const parts = String('${{ inputs.repo }}').split('/')
+            if (parts.length != 2) {
+              core.setFailed(`Input repo "${{ inputs.repo }}" is not in the right format "<owner>/<name>"`);
+            }
+            const repoOwner = parts[0]
+            const repoName = parts[1]
             const cutoffMs = ${{ inputs.expiryHours }} * 60 * 60 * 1000
             const now = new Date();
             const pulls = await github.rest.pulls.list({
-              owner: '${{ inputs.owner }}',
-              repo: '${{ inputs.repo }}',
+              owner: repoOwner,
+              repo: repoName,
               state: 'open',
               per_page: 100,
             });
@@ -46,8 +48,8 @@ jobs:
 
             pulls.data.forEach(async (pull) => {
               const files = await github.rest.pulls.listFiles({
-                owner: '${{ inputs.owner }}',
-                repo: '${{ inputs.repo }}',
+                owner: repoOwner,
+                repo: repoName,
                 pull_number: pull['number'],
               })
 
@@ -64,8 +66,8 @@ jobs:
                 core.info(`Closing #${pull['number']} (${pull['title']})`);
 
                 await github.rest.pulls.update({
-                  owner: '${{ inputs.owner }}',
-                  repo: '${{ inputs.repo }}',
+                  owner: repoOwner,
+                  repo: repoName,
                   pull_number: pull['number'],
                   state: 'closed',
                 });
