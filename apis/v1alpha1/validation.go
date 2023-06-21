@@ -21,6 +21,11 @@ import (
 	"strings"
 )
 
+var (
+	defaultCLI              = "gcloud"
+	invalidCommandOperators = []string{"&", "|", ">", ">>"}
+)
+
 // ValidateIAMRequest checks if the IAMRequest is valid.
 func ValidateIAMRequest(r *IAMRequest) (retErr error) {
 	for _, s := range r.ResourcePolicies {
@@ -56,4 +61,40 @@ func ValidateIAMRequest(r *IAMRequest) (retErr error) {
 		}
 	}
 	return
+}
+
+// ValidateCLIRequest checks if the CLIRequest is valid.
+func ValidateCLIRequest(r *CLIRequest) (retErr error) {
+	// Set default CLI
+	if r.CLI == "" {
+		r.CLI = defaultCLI
+	}
+	// TODO (#49): support other CLIs.
+	if r.CLI != defaultCLI {
+		retErr = errors.Join(retErr, fmt.Errorf("CLI %q is not supported", r.CLI))
+	}
+
+	// Check if the do commands are valid.
+	for _, c := range r.Do {
+		if err := checkCommand(c); err != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("command %q is not valid: %w", c, err))
+		}
+	}
+
+	// Check if the cleanup commands are valid.
+	for _, c := range r.Cleanup {
+		if err := checkCommand(c); err != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("command %q is not valid: %w", c, err))
+		}
+	}
+	return retErr
+}
+
+func checkCommand(c string) error {
+	for _, o := range invalidCommandOperators {
+		if strings.Contains(c, o) {
+			return fmt.Errorf(`command contains invalid operators in %q`, invalidCommandOperators)
+		}
+	}
+	return nil
 }
