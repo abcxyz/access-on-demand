@@ -81,12 +81,12 @@ func (h *CLIHandler) Cleanup(ctx context.Context, r *v1alpha1.CLIRequest) error 
 func (h *CLIHandler) run(cli string, cmds []string) error {
 	for _, c := range cmds {
 		cmd := exec.Command(cli, c)
+		// If stdout is set, debug mode is on and it writes the command output to
+		// stdout.
 		if h.stdout != nil {
 			cmd.Stdout = h.stdout
 		}
-		if h.stderr != nil {
-			cmd.Stderr = h.stderr
-		}
+		cmd.Stderr = h.stderr
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to run command %q, error %w", c, err)
 		}
