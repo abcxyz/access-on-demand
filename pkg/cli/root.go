@@ -42,6 +42,20 @@ var rootCmd = func() cli.Command {
 					},
 				}
 			},
+			"cli": func() cli.Command {
+				return &cli.RootCommand{
+					Name:        "cli",
+					Description: "Perform operations related to the CLI request",
+					Commands: map[string]cli.CommandFactory{
+						"do": func() cli.Command {
+							return &CLIHandleCommand{}
+						},
+						"cleanup": func() cli.Command {
+							return &CLIHandleCommand{Cleanup: true}
+						},
+					},
+				}
+			},
 		},
 	}
 }

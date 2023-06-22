@@ -123,13 +123,13 @@ func (c *IAMHandleCommand) Run(ctx context.Context, args []string) error {
 
 func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 	// Read request from file path.
-	req, err := requestutil.ReadFromPath(c.flagPath)
-	if err != nil {
-		return fmt.Errorf("failed to read %T: %w", req, err)
+	var req v1alpha1.IAMRequest
+	if err := requestutil.ReadRequestFromPath(c.flagPath, &req); err != nil {
+		return fmt.Errorf("failed to read %T: %w", &req, err)
 	}
 
-	if err := v1alpha1.ValidateIAMRequest(req); err != nil {
-		return fmt.Errorf("failed to validate %T: %w", req, err)
+	if err := v1alpha1.ValidateIAMRequest(&req); err != nil {
+		return fmt.Errorf("failed to validate %T: %w", &req, err)
 	}
 
 	var h iamHandler
@@ -170,7 +170,7 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 
 	// Wrap IAMRequest to include Duration.
 	reqWrapper := &v1alpha1.IAMRequestWrapper{
-		IAMRequest: req,
+		IAMRequest: &req,
 		Duration:   c.flagDuration,
 		StartTime:  c.flagStartTime,
 	}
