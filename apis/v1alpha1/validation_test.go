@@ -224,7 +224,7 @@ func TestValidateCLIRequest(t *testing.T) {
 			},
 		},
 		{
-			name: "success_without_cli",
+			name: "success_with_default_cli",
 			request: &CLIRequest{
 				Do: []string{
 					"run jobs execute my-job1",
@@ -259,7 +259,7 @@ func TestValidateCLIRequest(t *testing.T) {
 					"run jobs executions delete my-execution",
 				},
 			},
-			wantErr: `command contains invalid operators in ["&" "|" ">" ">>"]`,
+			wantErr: `invalid command operator '&'`,
 		},
 		{
 			name: "invalid_cleanup_command",
@@ -271,7 +271,7 @@ func TestValidateCLIRequest(t *testing.T) {
 					"storage cat gs://bucket/secrets.txt > my-file.txt",
 				},
 			},
-			wantErr: `command contains invalid operators in ["&" "|" ">" ">>"]`,
+			wantErr: `invalid command operator '>'`,
 		},
 	}
 
