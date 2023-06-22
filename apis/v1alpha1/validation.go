@@ -97,8 +97,18 @@ func ValidateCLIRequest(r *CLIRequest) (retErr error) {
 func checkCommand(c string) error {
 	for _, ch := range c {
 		if _, ok := invalidCommandOperators[ch]; ok {
-			return fmt.Errorf("invalid command operator %q", ch)
+			return fmt.Errorf("contains invalid command operators in %q", getMapKeys(invalidCommandOperators))
 		}
 	}
 	return nil
+}
+
+func getMapKeys(m map[rune]struct{}) []rune {
+	keys := make([]rune, len(m))
+	i := 0
+	for k := range invalidCommandOperators {
+		keys[i] = k
+		i++
+	}
+	return keys
 }

@@ -259,7 +259,7 @@ func TestValidateCLIRequest(t *testing.T) {
 					"run jobs executions delete my-execution",
 				},
 			},
-			wantErr: `invalid command operator '&'`,
+			wantErr: `contains invalid command operators in`,
 		},
 		{
 			name: "invalid_cleanup_command",
@@ -271,7 +271,7 @@ func TestValidateCLIRequest(t *testing.T) {
 					"storage cat gs://bucket/secrets.txt > my-file.txt",
 				},
 			},
-			wantErr: `invalid command operator '>'`,
+			wantErr: `contains invalid command operators in`,
 		},
 	}
 
