@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// handler package that handles IAM request and IAM policy updates.
+// handler package that handles AOD request.
 package handler
 
 import (
