@@ -53,6 +53,9 @@ var rootCmd = func() cli.Command {
 						"cleanup": func() cli.Command {
 							return &CLIHandleCommand{Cleanup: true}
 						},
+						"validate": func() cli.Command {
+							return &CLIValidateCommand{}
+						},
 					},
 				}
 			},
