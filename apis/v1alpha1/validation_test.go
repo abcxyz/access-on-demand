@@ -200,3 +200,93 @@ func TestValidateIAMRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateCLIRequest(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		request *CLIRequest
+		wantErr string
+	}{
+		{
+			name: "success",
+			request: &CLIRequest{
+				CLI: "gcloud",
+				Do: []string{
+					"run jobs execute my-job1",
+					"run jobs execute my-job2",
+				},
+				Cleanup: []string{
+					"run jobs executions delete my-execution1",
+					"run jobs executions delete my-execution2",
+				},
+			},
+		},
+		{
+			name: "success_with_default_cli",
+			request: &CLIRequest{
+				Do: []string{
+					"run jobs execute my-job1",
+					"run jobs execute my-job2",
+				},
+				Cleanup: []string{
+					"run jobs executions delete my-execution1",
+					"run jobs executions delete my-execution2",
+				},
+			},
+		},
+		{
+			name: "invalid_cli",
+			request: &CLIRequest{
+				CLI: "aws",
+				Do: []string{
+					"run jobs execute my-job",
+				},
+				Cleanup: []string{
+					"run jobs executions delete my-execution",
+				},
+			},
+			wantErr: `CLI "aws" is not supported`,
+		},
+		{
+			name: "invalid_do_command",
+			request: &CLIRequest{
+				Do: []string{
+					`run
+jobs execute my-job && rmdir dir`,
+				},
+				Cleanup: []string{
+					"run jobs executions delete my-execution",
+				},
+			},
+			wantErr: `disallowed command character '&' at 2:20
+disallowed command character '&' at 2:21`,
+		},
+		{
+			name: "invalid_cleanup_command",
+			request: &CLIRequest{
+				Do: []string{
+					"run jobs execute my-job",
+				},
+				Cleanup: []string{
+					"storage cat gs://bucket/secrets.txt > my-file.txt",
+				},
+			},
+			wantErr: `disallowed command character '>' at 1:36`,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotErr := ValidateCLIRequest(tc.request)
+			if diff := testutil.DiffErrString(gotErr, tc.wantErr); diff != "" {
+				t.Errorf("Process %s got unexpected error: %s", tc.name, diff)
+			}
+		})
+	}
+}

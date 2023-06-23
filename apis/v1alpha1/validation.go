@@ -15,10 +15,20 @@
 package v1alpha1
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
+)
+
+var (
+	defaultCLI              = "gcloud"
+	invalidCommandOperators = map[rune]struct{}{
+		'&': {},
+		'|': {},
+		'>': {},
+	}
 )
 
 // ValidateIAMRequest checks if the IAMRequest is valid.
@@ -56,4 +66,44 @@ func ValidateIAMRequest(r *IAMRequest) (retErr error) {
 		}
 	}
 	return
+}
+
+// ValidateCLIRequest checks if the CLIRequest is valid.
+func ValidateCLIRequest(r *CLIRequest) (retErr error) {
+	// Set default CLI
+	if r.CLI == "" {
+		r.CLI = defaultCLI
+	}
+	// TODO (#49): support other CLIs.
+	if r.CLI != defaultCLI {
+		retErr = errors.Join(retErr, fmt.Errorf("CLI %q is not supported", r.CLI))
+	}
+
+	// Check if the do commands are valid.
+	for _, c := range r.Do {
+		if err := checkCommand(c); err != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("do command %q is not valid: %w", c, err))
+		}
+	}
+
+	// Check if the cleanup commands are valid.
+	for _, c := range r.Cleanup {
+		if err := checkCommand(c); err != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("cleanup command %q is not valid: %w", c, err))
+		}
+	}
+	return retErr
+}
+
+func checkCommand(c string) (retErr error) {
+	scanner := bufio.NewScanner(strings.NewReader(c))
+	for row := 1; scanner.Scan(); row++ {
+		line := scanner.Text()
+		for col, r := range line {
+			if _, ok := invalidCommandOperators[r]; ok {
+				retErr = errors.Join(retErr, fmt.Errorf("disallowed command character %q at %d:%d", r, row, col))
+			}
+		}
+	}
+	return retErr
 }
