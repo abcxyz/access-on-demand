@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -94,19 +95,15 @@ func ValidateCLIRequest(r *CLIRequest) (retErr error) {
 	return retErr
 }
 
-func checkCommand(c string) error {
-	for _, ch := range c {
-		if _, ok := invalidCommandOperators[ch]; ok {
-			return fmt.Errorf("contains invalid command operators in %q", getMapKeys(invalidCommandOperators))
+func checkCommand(c string) (retErr error) {
+	scanner := bufio.NewScanner(strings.NewReader(c))
+	for row := 1; scanner.Scan(); row++ {
+		line := scanner.Text()
+		for col, r := range line {
+			if _, ok := invalidCommandOperators[r]; ok {
+				retErr = errors.Join(retErr, fmt.Errorf("disallowed command character %q at %d:%d", r, row, col))
+			}
 		}
 	}
-	return nil
-}
-
-func getMapKeys(m map[rune]struct{}) []rune {
-	keys := make([]rune, 0, len(m))
-	for k := range invalidCommandOperators {
-		keys = append(keys, k)
-	}
-	return keys
+	return retErr
 }

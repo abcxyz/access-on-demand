@@ -253,13 +253,15 @@ func TestValidateCLIRequest(t *testing.T) {
 			name: "invalid_do_command",
 			request: &CLIRequest{
 				Do: []string{
-					"run jobs execute my-job && rmdir dir",
+					`run
+jobs execute my-job && rmdir dir`,
 				},
 				Cleanup: []string{
 					"run jobs executions delete my-execution",
 				},
 			},
-			wantErr: `contains invalid command operators in`,
+			wantErr: `disallowed command character '&' at 2:20
+disallowed command character '&' at 2:21`,
 		},
 		{
 			name: "invalid_cleanup_command",
@@ -271,7 +273,7 @@ func TestValidateCLIRequest(t *testing.T) {
 					"storage cat gs://bucket/secrets.txt > my-file.txt",
 				},
 			},
-			wantErr: `contains invalid command operators in`,
+			wantErr: `disallowed command character '>' at 1:36`,
 		},
 	}
 
