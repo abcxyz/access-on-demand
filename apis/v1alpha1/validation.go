@@ -104,11 +104,9 @@ func checkCommand(c string) error {
 }
 
 func getMapKeys(m map[rune]struct{}) []rune {
-	keys := make([]rune, len(m))
-	i := 0
+	keys := make([]rune, 0, len(m))
 	for k := range invalidCommandOperators {
-		keys[i] = k
-		i++
+		keys = append(keys, k)
 	}
 	return keys
 }
