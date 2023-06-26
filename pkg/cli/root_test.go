@@ -25,6 +25,7 @@ func TestRootCommand_Help(t *testing.T) {
 	exp := `
 Usage: aod COMMAND
 
+  cli    Perform operations related to the CLI request
   iam    Perform operations related to the IAM request
 `
 

@@ -20,28 +20,26 @@ import (
 	"io"
 	"os"
 
-	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"gopkg.in/yaml.v3"
 )
 
-// ReadFromPath reads a YAML file at the given path and unmarshal it to
-// IAMRequest.
-func ReadFromPath(path string) (*v1alpha1.IAMRequest, error) {
+// ReadRequestFromPath reads a YAML file at the given path and unmarshal it to
+// the given req.
+func ReadRequestFromPath(path string, req any) error {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file at %q, %w", path, err)
+		return fmt.Errorf("failed to read file at %q, %w", path, err)
 	}
 	defer f.Close()
 
 	data, err := io.ReadAll(io.LimitReader(f, 64*1_000))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file content at %q, %w", path, err)
+		return fmt.Errorf("failed to read file content at %q, %w", path, err)
 	}
 
-	var req v1alpha1.IAMRequest
-	if err := yaml.Unmarshal(data, &req); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal yaml to %T: %w", req, err)
+	if err := yaml.Unmarshal(data, req); err != nil {
+		return fmt.Errorf("failed to unmarshal yaml to %T: %w", req, err)
 	}
 
-	return &req, nil
+	return nil
 }

@@ -118,12 +118,14 @@ policies:
 		{
 			name:   "invalid_path",
 			path:   "foo",
+			expReq: &v1alpha1.IAMRequest{},
 			expErr: `failed to read file at "foo"`,
 		},
 		{
 			name:   "invalid_yaml",
 			path:   filepath.Join(dir, "invalid.yaml"),
-			expErr: "failed to unmarshal yaml to v1alpha1.IAMRequest",
+			expReq: &v1alpha1.IAMRequest{},
+			expErr: "failed to unmarshal yaml to *v1alpha1.IAMRequest",
 		},
 	}
 
@@ -133,12 +135,13 @@ policies:
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			req, err := ReadFromPath(tc.path)
+			var req v1alpha1.IAMRequest
+			err := ReadRequestFromPath(tc.path, &req)
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
 				t.Errorf("Process(%+v) got error diff (-want, +got):\n%s", tc.name, diff)
 			}
 
-			if diff := cmp.Diff(tc.expReq, req); diff != "" {
+			if diff := cmp.Diff(tc.expReq, &req); diff != "" {
 				t.Errorf("Process(%+v) got request diff (-want, +got): %v", tc.name, diff)
 			}
 		})

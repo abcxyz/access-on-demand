@@ -126,13 +126,12 @@ policies:
 	st := time.Now().UTC().Round(time.Second)
 
 	cases := []struct {
-		name     string
-		args     []string
-		fileData []byte
-		handler  *fakeIAMHandler
-		expReq   *v1alpha1.IAMRequestWrapper
-		expOut   string
-		expErr   string
+		name    string
+		args    []string
+		handler *fakeIAMHandler
+		expReq  *v1alpha1.IAMRequestWrapper
+		expOut  string
+		expErr  string
 	}{
 		{
 			name:    "success",

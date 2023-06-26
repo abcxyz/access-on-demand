@@ -83,13 +83,13 @@ func (c *IAMValidateCommand) Run(ctx context.Context, args []string) error {
 
 func (c *IAMValidateCommand) validate(ctx context.Context) error {
 	// Read request from YAML file.
-	req, err := requestutil.ReadFromPath(c.flagPath)
-	if err != nil {
-		return fmt.Errorf("failed to read %T: %w", req, err)
+	var req v1alpha1.IAMRequest
+	if err := requestutil.ReadRequestFromPath(c.flagPath, &req); err != nil {
+		return fmt.Errorf("failed to read %T: %w", &req, err)
 	}
 
-	if err := v1alpha1.ValidateIAMRequest(req); err != nil {
-		return fmt.Errorf("failed to validate %T: %w", req, err)
+	if err := v1alpha1.ValidateIAMRequest(&req); err != nil {
+		return fmt.Errorf("failed to validate %T: %w", &req, err)
 	}
 	c.Outf("Successfully validated IAM request")
 
