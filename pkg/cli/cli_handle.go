@@ -108,10 +108,10 @@ func (c *CLIHandleCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("path is required")
 	}
 
-	return c.do(ctx)
+	return c.handle(ctx)
 }
 
-func (c *CLIHandleCommand) do(ctx context.Context) error {
+func (c *CLIHandleCommand) handle(ctx context.Context) error {
 	// Read request from file path.
 	var req v1alpha1.CLIRequest
 	if err := requestutil.ReadRequestFromPath(c.flagPath, &req); err != nil {
