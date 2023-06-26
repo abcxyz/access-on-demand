@@ -58,15 +58,15 @@ cleanup:
 	}
 
 	cases := []struct {
-		name      string
-		args      []string
-		expOut    string
-		expErr    string
+		name   string
+		args   []string
+		expOut string
+		expErr string
 	}{
 		{
-			name:    "success",
-			args:    []string{"-path", filepath.Join(dir, "valid.yaml")},
-			expOut:  `Successfully validated CLI request`,
+			name:   "success",
+			args:   []string{"-path", filepath.Join(dir, "valid.yaml")},
+			expOut: `Successfully validated CLI request`,
 		},
 		{
 			name:   "unexpected_args",
