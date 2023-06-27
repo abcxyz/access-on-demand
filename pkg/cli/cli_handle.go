@@ -36,7 +36,7 @@ type CLIHandleCommand struct {
 	flagDebug bool
 
 	// Run Cleanup instead of Do if true.
-	Cleanup bool
+	flagCleanup bool
 
 	// testCLI is used for testing only.
 	testCLI string
@@ -50,23 +50,21 @@ func (c *CLIHandleCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
-Run "do" commands in the CLI request YAML file at the given path:
+Handle "do" commands in the CLI request YAML file at the given path:
 
-      aod cli do -path "/path/to/file.yaml"
+      aod cli handle -path "/path/to/file.yaml"
 
+Handle "do" commands in the CLI request YAML file at the given path in debug mode:
 
-Run "do" commands in the CLI request YAML file at the given path in debug mode:
+      aod cli handle -path "/path/to/file.yaml" -debug
 
-      aod cli do -path "/path/to/file.yaml" -debug
+Handle "cleanup" commands in the CLI request YAML file at the given path:
 
-Run "cleanup" commands in the CLI request YAML file at the given path:
+      aod cli handle -path "/path/to/file.yaml" -cleanup
 
-      aod cli cleanup -path "/path/to/file.yaml"
+Handle "cleanup" commands in the CLI request YAML file at the given path in debug mode:
 
-
-Run "cleanup" commands in the CLI request YAML file at the given path in debug mode:
-
-      aod cli cleanup -path "/path/to/file.yaml" -debug
+      aod cli handle -path "/path/to/file.yaml" -cleanup -debug
 `
 }
 
@@ -82,6 +80,13 @@ func (c *CLIHandleCommand) Flags() *cli.FlagSet {
 		Example: "/path/to/file.yaml",
 		Predict: predict.Files("*"),
 		Usage:   `The path of CLI request file, in YAML format.`,
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "cleanup",
+		Target:  &c.flagCleanup,
+		Default: false,
+		Usage:   `Handle CLI request cleanup.`,
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -133,7 +138,7 @@ func (c *CLIHandleCommand) handle(ctx context.Context) error {
 		req.CLI = c.testCLI
 	}
 	var err error
-	if c.Cleanup {
+	if c.flagCleanup {
 		err = h.Cleanup(ctx, &req)
 	} else {
 		err = h.Do(ctx, &req)
