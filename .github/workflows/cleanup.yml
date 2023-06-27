@@ -34,9 +34,48 @@ on:
         required: false
 
 jobs:
+  approved:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      pull-requests: 'read'
+    outputs:
+      result: '${{ steps.approved.outputs.result }}'
+    steps:
+      - id: 'approved'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          result-encoding: 'string'
+          retries: 3
+          script: |-
+            const parts = String('${{ github.repository }}').split('/')
+            const repoOwner = parts[0]
+            const repoName = parts[1]
+            const reviews = await github.rest.pulls.listReviews({
+              owner: repoOwner,
+              repo: repoName,
+              pull_number: '${{ github.event.number }}',
+            });
+
+            if (!reviews) {
+              core.info(`PR is not approved`);
+              return "false";
+            }
+
+            core.info(`Found ${reviews.data.length} reviews`);
+
+            for(review of reviews.data) {
+              if (review.state.toLowerCase() === 'approved') {
+                core.info(`PR is approved`);
+                return "true";
+              }
+            };
+            core.info(`PR is not approved`);
+            return "false";
+
+# Only run CLI request cleanup when it is approved.
   cleanup:
-    # Only run CLI request cleanup when it is mergeable (approved and no conflict with the base branch).
-    if: '${{ github.event.pull_request.mergeable}}'
+    needs: 'approved'
+    if: '${{ needs.approved.outputs.result == ''true'' }}'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
