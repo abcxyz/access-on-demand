@@ -52,19 +52,19 @@ Usage: {{ COMMAND }} [options]
 
 Handle "do" commands in the CLI request YAML file at the given path:
 
-      aod cli handle -path "/path/to/file.yaml"
+      aod cli {{ COMMAND }} -path "/path/to/file.yaml"
 
 Handle "do" commands in the CLI request YAML file at the given path in debug mode:
 
-      aod cli handle -path "/path/to/file.yaml" -debug
+      aod cli {{ COMMAND }} -path "/path/to/file.yaml" -debug
 
 Handle "cleanup" commands in the CLI request YAML file at the given path:
 
-      aod cli handle -path "/path/to/file.yaml" -cleanup
+      aod cli {{ COMMAND }} -path "/path/to/file.yaml" -cleanup
 
 Handle "cleanup" commands in the CLI request YAML file at the given path in debug mode:
 
-      aod cli handle -path "/path/to/file.yaml" -cleanup -debug
+      aod cli {{ COMMAND }} -path "/path/to/file.yaml" -cleanup -debug
 `
 }
 

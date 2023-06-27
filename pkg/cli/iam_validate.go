@@ -43,7 +43,7 @@ Usage: {{ COMMAND }} [options]
 
 Validate the IAM request YAML file at the given path:
 
-      aod iam validate -path "/path/to/file.yaml"
+      aod iam {{ COMMAND }} -path "/path/to/file.yaml"
 `
 }
 
