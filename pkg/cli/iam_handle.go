@@ -59,7 +59,7 @@ Usage: {{ COMMAND }} [options]
 
 Handle the IAM request YAML file in the given path:
 
-      aod iam handle -path "/path/to/file.yaml" -duration "2h" -start-time "2009-11-10T23:00:00Z"
+      {{ COMMAND }} -path "/path/to/file.yaml" -duration "2h" -start-time "2009-11-10T23:00:00Z"
 `
 }
 

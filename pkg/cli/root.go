@@ -51,6 +51,7 @@ var rootCmd = func() cli.Command {
 							return &CLIHandleCommand{}
 						},
 						"cleanup": func() cli.Command {
+							// TODO(#58): Cleanup as an input is anti-pattern, need a better command structure.
 							return &CLIHandleCommand{Cleanup: true}
 						},
 						"validate": func() cli.Command {

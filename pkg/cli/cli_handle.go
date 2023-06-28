@@ -50,23 +50,13 @@ func (c *CLIHandleCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
-Run "do" commands in the CLI request YAML file at the given path:
+Handle CLI request YAML file at the given path:
 
-      aod cli do -path "/path/to/file.yaml"
+      {{ COMMAND }} -path "/path/to/file.yaml"
 
+Handle CLI request YAML file at the given path in debug mode:
 
-Run "do" commands in the CLI request YAML file at the given path in debug mode:
-
-      aod cli do -path "/path/to/file.yaml" -debug
-
-Run "cleanup" commands in the CLI request YAML file at the given path:
-
-      aod cli cleanup -path "/path/to/file.yaml"
-
-
-Run "cleanup" commands in the CLI request YAML file at the given path in debug mode:
-
-      aod cli cleanup -path "/path/to/file.yaml" -debug
+      {{ COMMAND }} -path "/path/to/file.yaml" -debug
 `
 }
 
