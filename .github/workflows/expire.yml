@@ -54,7 +54,7 @@ jobs:
               })
 
               // Check if the PR is an AOD request by checking the AOD file existence.
-              if (files.data.find(f => f.filename === 'iam.yaml')) {
+              if (files.data.find(f => (f.filename === 'iam.yaml' || f.filename === 'cli.yaml'))) {
                 // Check if the PR is within the cutoff threshold
                 const updatedAt = new Date(Date.parse(pull['updated_at']));
 
