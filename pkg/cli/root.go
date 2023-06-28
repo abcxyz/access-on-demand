@@ -47,8 +47,12 @@ var rootCmd = func() cli.Command {
 					Name:        "cli",
 					Description: "Perform operations related to the CLI request",
 					Commands: map[string]cli.CommandFactory{
-						"handle": func() cli.Command {
+						"do": func() cli.Command {
 							return &CLIHandleCommand{}
+						},
+						"cleanup": func() cli.Command {
+							// TODO(#58): Cleanup as an input is anti-pattern, need a better command structure.
+							return &CLIHandleCommand{Cleanup: true}
 						},
 						"validate": func() cli.Command {
 							return &CLIValidateCommand{}

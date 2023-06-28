@@ -61,6 +61,7 @@ cleanup:
 		name      string
 		args      []string
 		testCLI   string
+		cleanup   bool
 		expOut    string
 		expErr    string
 		expStdErr string
@@ -82,14 +83,16 @@ Successfully completed commands`,
 		},
 		{
 			name:    "success_cleanup",
-			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-cleanup"},
+			args:    []string{"-path", filepath.Join(dir, "valid.yaml")},
 			testCLI: "echo",
+			cleanup: true,
 			expOut:  `Successfully completed commands`,
 		},
 		{
 			name:    "success_cleanup_with_debug",
-			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-debug", "-cleanup"},
+			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-debug"},
 			testCLI: "echo",
+			cleanup: true,
 			expOut: `
 cleanup1
 cleanup2
@@ -119,8 +122,9 @@ Successfully completed commands`,
 		},
 		{
 			name:      "handler_cleanup_failure",
-			args:      []string{"-path", filepath.Join(dir, "valid.yaml"), "-cleanup"},
+			args:      []string{"-path", filepath.Join(dir, "valid.yaml")},
 			testCLI:   "ls",
+			cleanup:   true,
 			expErr:    `failed to run command "cleanup1"`,
 			expStdErr: "ls: cannot access 'cleanup1': No such file or directory",
 		},
@@ -140,6 +144,7 @@ Successfully completed commands`,
 			ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
 			cmd := CLIHandleCommand{
+				Cleanup: tc.cleanup,
 				testCLI: tc.testCLI,
 			}
 			_, stdout, stderr := cmd.Pipe()

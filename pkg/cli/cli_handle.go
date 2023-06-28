@@ -36,7 +36,7 @@ type CLIHandleCommand struct {
 	flagDebug bool
 
 	// Run Cleanup instead of Do if true.
-	flagCleanup bool
+	Cleanup bool
 
 	// testCLI is used for testing only.
 	testCLI string
@@ -50,21 +50,13 @@ func (c *CLIHandleCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
-Handle "do" commands in the CLI request YAML file at the given path:
+Handle CLI request YAML file at the given path:
 
       {{ COMMAND }} -path "/path/to/file.yaml"
 
-Handle "do" commands in the CLI request YAML file at the given path in debug mode:
+Handle CLI request YAML file at the given path in debug mode:
 
       {{ COMMAND }} -path "/path/to/file.yaml" -debug
-
-Handle "cleanup" commands in the CLI request YAML file at the given path:
-
-      {{ COMMAND }} -path "/path/to/file.yaml" -cleanup
-
-Handle "cleanup" commands in the CLI request YAML file at the given path in debug mode:
-
-      {{ COMMAND }} -path "/path/to/file.yaml" -cleanup -debug
 `
 }
 
@@ -80,13 +72,6 @@ func (c *CLIHandleCommand) Flags() *cli.FlagSet {
 		Example: "/path/to/file.yaml",
 		Predict: predict.Files("*"),
 		Usage:   `The path of CLI request file, in YAML format.`,
-	})
-
-	f.BoolVar(&cli.BoolVar{
-		Name:    "cleanup",
-		Target:  &c.flagCleanup,
-		Default: false,
-		Usage:   `Handle CLI request cleanup.`,
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -138,7 +123,7 @@ func (c *CLIHandleCommand) handle(ctx context.Context) error {
 		req.CLI = c.testCLI
 	}
 	var err error
-	if c.flagCleanup {
+	if c.Cleanup {
 		err = h.Cleanup(ctx, &req)
 	} else {
 		err = h.Do(ctx, &req)
