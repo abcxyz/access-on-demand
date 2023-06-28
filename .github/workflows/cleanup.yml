@@ -34,48 +34,39 @@ on:
         required: false
 
 jobs:
-  approved:
+  # Check the current status of this pull request with respect to code review.
+  review_status:
     runs-on: 'ubuntu-latest'
-    permissions:
-      pull-requests: 'read'
     outputs:
-      result: '${{ steps.approved.outputs.result }}'
+      REVIEW_DECISION: '${{ steps.get_review_decision.outputs.REVIEW_DECISION }}'
     steps:
-      - id: 'approved'
-        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
-        with:
-          result-encoding: 'string'
-          retries: 3
-          script: |-
-            const parts = String('${{ github.repository }}').split('/')
-            const repoOwner = parts[0]
-            const repoName = parts[1]
-            const reviews = await github.rest.pulls.listReviews({
-              owner: repoOwner,
-              repo: repoName,
-              pull_number: '${{ github.event.number }}',
-            });
-
-            if (!reviews) {
-              core.info(`PR is not approved`);
-              return "false";
-            }
-
-            core.info(`Found ${reviews.data.length} reviews`);
-
-            for(review of reviews.data) {
-              if (review.state.toLowerCase() === 'approved') {
-                core.info(`PR is approved`);
-                return "true";
+      - id: 'repo_name'
+        env:
+          REPO: '${{ github.repository }}'
+        run: 'echo "REPO_NAME=${REPO##*/}" >> $GITHUB_OUTPUT'
+      - id: 'get_review_decision'
+        env:
+          OWNER: '${{ github.repository_owner }}'
+          REPO_NAME: '${{ steps.repo_name.outputs.REPO_NAME }}'
+          PR_NUMBER: '${{ github.event.number }}'
+          GH_TOKEN: '${{ github.token }}'
+        run: |
+          reviewDecision="$(gh api graphql -F owner=$OWNER -F name=$REPO_NAME -F pr_number=$PR_NUMBER -f query='
+            query($name: String!, $owner: String!, $pr_number: Int!) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $pr_number) {
+                  reviewDecision
+                }
               }
-            };
-            core.info(`PR is not approved`);
-            return "false";
+            }
+          ' --jq '.data.repository.pullRequest.reviewDecision')"
 
-# Only run CLI request cleanup when it is approved.
+          echo REVIEW_DECISION=$reviewDecision >> $GITHUB_OUTPUT
+
+  # Only run CLI request cleanup when the pull request is approved.
   cleanup:
-    needs: 'approved'
-    if: '${{ needs.approved.outputs.result == ''true'' }}'
+    needs: 'review_status'
+    if: '${{ needs.review_status.outputs.REVIEW_DECISION == ''APPROVED'' }}'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
