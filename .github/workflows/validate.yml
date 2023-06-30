@@ -14,7 +14,10 @@
 
 name: 'aod-validate'
 
-# Support triggering events containing pull request such as pull_request and pull_request_review.
+# Triger this workflow with 'pull_request' event that has 'iam.yaml' and
+# 'cli.yaml' files changed.
+# Support triggering events containing pull request such as 'pull_request' and
+# 'pull_request_review'.
 on:
   workflow_call:
     inputs:
@@ -47,14 +50,20 @@ jobs:
           go-version: '${{ inputs.go_version }}'
       - name: 'Install AOD CLI'
         run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
-      # Request will not be validated when iam.yaml file does not exist in the
-      # case of a pull_request_review event, instead it prints out a notice.
-      - name: 'Validate IAM Request'
+      # IAM request will not be validated when iam.yaml file does not exist, CLI
+      # request will be not validated when cli.yaml file does not exist.
+      - name: 'Validate AOD Request'
         env:
-          FILE_PATH: '${{ github.workspace }}/iam.yaml'
+          IAM_FILE_PATH: '${{ github.workspace }}/iam.yaml'
+          CLI_FILE_PATH: '${{ github.workspace }}/cli.yaml'
         run: |
           if [ -f "iam.yaml" ]; then
-            aod iam validate -path $FILE_PATH
+            aod iam validate -path $IAM_FILE_PATH
           else
             echo "::notice title=IAM Request Validation::Skip because iam.yaml is not found"
+          fi
+          if [ -f "cli.yaml" ]; then
+            aod cli validate -path $CLI_FILE_PATH
+          else
+            echo "::notice title=CLI Request Validation::Skip because cli.yaml is not found"
           fi
