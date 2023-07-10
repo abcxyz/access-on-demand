@@ -86,4 +86,4 @@ jobs:
       - name: 'Handle cleanup'
         env:
           FILE_PATH: '${{ github.workspace }}/cli.yaml'
-        run: 'aod cli cleanup -path $FILE_PATH'
+        run: 'aod gcloud cleanup -path $FILE_PATH'

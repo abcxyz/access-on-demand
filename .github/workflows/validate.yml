@@ -63,7 +63,7 @@ jobs:
             echo "::notice title=IAM Request Validation::Skip because iam.yaml is not found"
           fi
           if [ -f "cli.yaml" ]; then
-            aod cli validate -path $CLI_FILE_PATH
+            aod gcloud validate -path $CLI_FILE_PATH
           else
             echo "::notice title=CLI Request Validation::Skip because cli.yaml is not found"
           fi
