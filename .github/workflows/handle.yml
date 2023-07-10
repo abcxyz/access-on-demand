@@ -105,7 +105,7 @@ jobs:
           CLI_FILE_PATH: '${{ github.workspace }}/cli.yaml'
         run: |
           if [ -f "cli.yaml" ]; then
-            aod gcloud do -path $CLI_FILE_PATH
+            aod tool do -path $CLI_FILE_PATH
           else
             echo "::notice title=CLI Request Handle::Skip because cli.yaml is not found"
           fi

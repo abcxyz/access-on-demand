@@ -39,7 +39,7 @@ func TestCLIHandlerDo(t *testing.T) {
 		{
 			name: "success",
 			request: &v1alpha1.CLIRequest{
-				CLI: "echo",
+				Tool: "echo",
 				Do: []string{
 					"test do1",
 					"test do2",
@@ -50,7 +50,7 @@ func TestCLIHandlerDo(t *testing.T) {
 		{
 			name: "invalid_cli_command",
 			request: &v1alpha1.CLIRequest{
-				CLI: "invalid",
+				Tool: "invalid",
 				Do: []string{
 					"test do",
 				},
@@ -60,7 +60,7 @@ func TestCLIHandlerDo(t *testing.T) {
 		{
 			name: "failed_to_execute_cli_command",
 			request: &v1alpha1.CLIRequest{
-				CLI: "ls",
+				Tool: "ls",
 				Do: []string{
 					"dir_not_exist",
 				},
@@ -109,7 +109,7 @@ func TestCLIHandlerCleanup(t *testing.T) {
 		{
 			name: "success",
 			request: &v1alpha1.CLIRequest{
-				CLI: "echo",
+				Tool: "echo",
 				Cleanup: []string{
 					"test do1",
 					"test do2",
@@ -120,7 +120,7 @@ func TestCLIHandlerCleanup(t *testing.T) {
 		{
 			name: "invalid_cli_command",
 			request: &v1alpha1.CLIRequest{
-				CLI: "invalid",
+				Tool: "invalid",
 				Cleanup: []string{
 					"test do",
 				},
@@ -130,7 +130,7 @@ func TestCLIHandlerCleanup(t *testing.T) {
 		{
 			name: "failed_to_execute_cli_command",
 			request: &v1alpha1.CLIRequest{
-				CLI: "ls",
+				Tool: "ls",
 				Cleanup: []string{
 					"dir_not_exist",
 				},

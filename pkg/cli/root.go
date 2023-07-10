@@ -42,10 +42,10 @@ var rootCmd = func() cli.Command {
 					},
 				}
 			},
-			"gcloud": func() cli.Command {
+			"tool": func() cli.Command {
 				return &cli.RootCommand{
-					Name:        "gcloud",
-					Description: "Perform operations related to the gcloud CLI request",
+					Name:        "tool",
+					Description: "Perform operations related to the CLI request",
 					Commands: map[string]cli.CommandFactory{
 						"do": func() cli.Command {
 							return &CLIHandleCommand{}
