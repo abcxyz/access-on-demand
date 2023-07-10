@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	defaultTool              = "gcloud"
+	defaultTool             = "gcloud"
 	invalidCommandOperators = map[rune]struct{}{
 		'&': {},
 		'|': {},
