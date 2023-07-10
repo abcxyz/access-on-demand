@@ -212,7 +212,7 @@ func TestValidateCLIRequest(t *testing.T) {
 		{
 			name: "success",
 			request: &CLIRequest{
-				CLI: "gcloud",
+				Tool: "gcloud",
 				Do: []string{
 					"run jobs execute my-job1",
 					"run jobs execute my-job2",
@@ -239,7 +239,7 @@ func TestValidateCLIRequest(t *testing.T) {
 		{
 			name: "invalid_cli",
 			request: &CLIRequest{
-				CLI: "aws",
+				Tool: "aws",
 				Do: []string{
 					"run jobs execute my-job",
 				},

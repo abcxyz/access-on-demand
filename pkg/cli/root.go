@@ -31,7 +31,7 @@ var rootCmd = func() cli.Command {
 			"iam": func() cli.Command {
 				return &cli.RootCommand{
 					Name:        "iam",
-					Description: "Perform operations related to the IAM request",
+					Description: "Perform operations to modify IAM policies on demand",
 					Commands: map[string]cli.CommandFactory{
 						"handle": func() cli.Command {
 							return &IAMHandleCommand{}
@@ -42,10 +42,10 @@ var rootCmd = func() cli.Command {
 					},
 				}
 			},
-			"cli": func() cli.Command {
+			"tool": func() cli.Command {
 				return &cli.RootCommand{
-					Name:        "cli",
-					Description: "Perform operations related to the CLI request",
+					Name:        "tool",
+					Description: "Perform operations to run CLI tools on demand",
 					Commands: map[string]cli.CommandFactory{
 						"do": func() cli.Command {
 							return &CLIHandleCommand{}

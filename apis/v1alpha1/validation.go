@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	defaultCLI              = "gcloud"
+	defaultTool             = "gcloud"
 	invalidCommandOperators = map[rune]struct{}{
 		'&': {},
 		'|': {},
@@ -71,12 +71,12 @@ func ValidateIAMRequest(r *IAMRequest) (retErr error) {
 // ValidateCLIRequest checks if the CLIRequest is valid.
 func ValidateCLIRequest(r *CLIRequest) (retErr error) {
 	// Set default CLI
-	if r.CLI == "" {
-		r.CLI = defaultCLI
+	if r.Tool == "" {
+		r.Tool = defaultTool
 	}
-	// TODO (#49): support other CLIs.
-	if r.CLI != defaultCLI {
-		retErr = errors.Join(retErr, fmt.Errorf("CLI %q is not supported", r.CLI))
+	// TODO (#49): support other CLI tools.
+	if r.Tool != defaultTool {
+		retErr = errors.Join(retErr, fmt.Errorf("CLI %q is not supported", r.Tool))
 	}
 
 	// Check if the do commands are valid.

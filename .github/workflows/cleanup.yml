@@ -18,7 +18,7 @@ name: 'aod-cleanup'
 # Support below trigger:
 # pull_request:
 #   types: 'closed'
-#   paths: 'cli.yaml'
+#   paths: 'tool.yaml'
 on:
   workflow_call:
     inputs:
@@ -85,5 +85,5 @@ jobs:
         run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
       - name: 'Handle cleanup'
         env:
-          FILE_PATH: '${{ github.workspace }}/cli.yaml'
-        run: 'aod cli cleanup -path $FILE_PATH'
+          FILE_PATH: '${{ github.workspace }}/tool.yaml'
+        run: 'aod tool cleanup -path $FILE_PATH'

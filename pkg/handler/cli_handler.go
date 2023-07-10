@@ -70,12 +70,12 @@ func NewCLIHandler(ctx context.Context, opts ...CLIHandlerOption) *CLIHandler {
 
 // Do runs the do commands.
 func (h *CLIHandler) Do(ctx context.Context, r *v1alpha1.CLIRequest) error {
-	return h.run(r.CLI, r.Do)
+	return h.run(r.Tool, r.Do)
 }
 
 // Cleanup runs the cleanup commands.
 func (h *CLIHandler) Cleanup(ctx context.Context, r *v1alpha1.CLIRequest) error {
-	return h.run(r.CLI, r.Cleanup)
+	return h.run(r.Tool, r.Cleanup)
 }
 
 func (h *CLIHandler) run(cli string, cmds []string) error {

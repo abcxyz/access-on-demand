@@ -16,12 +16,12 @@ package v1alpha1
 
 // CLIRequest represents a request to run CLI commands.
 type CLIRequest struct {
-	// CLI name such as gcloud.
-	CLI string `yaml:"cli,omitempty"`
+	// Tool name such as gcloud.
+	Tool string `yaml:"cli,omitempty"`
 
-	// List of commands without CLI name.
+	// List of commands without tool name.
 	Do []string `yaml:"do,omitempty"`
 
-	// List of cleanup commands without CLI name to run after "do" is completed.
+	// List of cleanup commands without tool name to run after "do" is completed.
 	Cleanup []string `yaml:"cleanup,omitempty"`
 }

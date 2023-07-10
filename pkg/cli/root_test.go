@@ -25,8 +25,8 @@ func TestRootCommand_Help(t *testing.T) {
 	exp := `
 Usage: aod COMMAND
 
-  cli    Perform operations related to the CLI request
-  iam    Perform operations related to the IAM request
+  iam     Perform operations to modify IAM policies on demand
+  tool    Perform operations to run CLI tools on demand
 `
 
 	cmd := rootCmd()

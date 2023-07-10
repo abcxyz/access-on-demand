@@ -120,7 +120,7 @@ func (c *CLIHandleCommand) handle(ctx context.Context) error {
 
 	// Use testCLI if it is for testing.
 	if c.testCLI != "" {
-		req.CLI = c.testCLI
+		req.Tool = c.testCLI
 	}
 	var err error
 	if c.Cleanup {
