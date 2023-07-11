@@ -15,8 +15,7 @@
 name: 'aod-handle'
 # TODO(#30): Support pull_request labeled triggering event. Current workflow
 # requires the triggering event must be pull_request_review as it relies on this
-# event to get the review status and approval submit time as IAM permission
-# expiration start time.
+# event to get the approval submit time as IAM permission expiration start time.
 on:
   workflow_call:
     inputs:
@@ -43,9 +42,38 @@ env:
   DEFAULT_DURATION: '2h'
 
 jobs:
+  review_status:
+    runs-on: 'ubuntu-latest'
+    outputs:
+      REVIEW_DECISION: '${{ steps.get_review_decision.outputs.REVIEW_DECISION }}'
+    steps:
+      - id: 'repo_name'
+        env:
+          REPO: '${{ github.repository }}'
+        run: 'echo "REPO_NAME=${REPO##*/}" >> $GITHUB_OUTPUT'
+      - id: 'get_review_decision'
+        env:
+          OWNER: '${{ github.repository_owner }}'
+          REPO_NAME: '${{ steps.repo_name.outputs.REPO_NAME }}'
+          PR_NUMBER: '${{ github.event.pull_request.number }}'
+          GH_TOKEN: '${{ github.token }}'
+        run: |
+          reviewDecision="$(gh api graphql -F owner=$OWNER -F name=$REPO_NAME -F pr_number=$PR_NUMBER -f query='
+            query($name: String!, $owner: String!, $pr_number: Int!) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $pr_number) {
+                  reviewDecision
+                }
+              }
+            }
+          ' --jq '.data.repository.pullRequest.reviewDecision')"
+
+          echo REVIEW_DECISION=$reviewDecision >> $GITHUB_OUTPUT
+
   handle:
-    # Only handle the request when the PR is approved.
-    if: '${{ github.event.review.state == ''approved'' }}'
+    # Only handle the request when the PR is approved by qualified approvers.
+    needs: 'review_status'
+    if: '${{ needs.review_status.outputs.REVIEW_DECISION == ''APPROVED'' }}'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
