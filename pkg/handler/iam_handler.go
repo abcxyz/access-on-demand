@@ -40,6 +40,9 @@ var (
 	expirationRegex = regexp.MustCompile(`request.time < timestamp\('([^']+)'\)`)
 )
 
+// updateIAMPolicy func that updates the given IAM policy.
+type updateIAMPolicy func(*iampb.Policy, []*v1alpha1.Binding, time.Time) error
+
 // IAMHandler updates IAM policies of GCP organizations, folders, and projects
 // based on the IAM request received.
 type IAMHandler struct {
@@ -89,15 +92,15 @@ func NewIAMHandler(ctx context.Context, organizationsClient, foldersClient, proj
 	return h, nil
 }
 
-// Do removes expired or duplicative IAM bindings added by AOD and adds requested IAM bindings to current IAM policy.
+// Do updates or adds IAM bindings to current IAM policy.
 func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps []*v1alpha1.IAMResponse, retErr error) {
 	expiry := r.StartTime.Add(r.Duration)
 	for _, p := range r.ResourcePolicies {
-		np, err := h.handlePolicy(ctx, p, expiry)
+		np, err := h.handlePolicy(ctx, p, expiry, addIAM)
 		if err != nil {
 			retErr = errors.Join(
 				retErr,
-				fmt.Errorf("failed to handle policy update for resource %s: %w", p.Resource, err),
+				fmt.Errorf("failed to add new IAM permissions for resource %s: %w", p.Resource, err),
 			)
 		}
 		if np != nil {
@@ -107,7 +110,25 @@ func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps
 	return
 }
 
-func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, expiry time.Time) (*v1alpha1.IAMResponse, error) {
+// Cleanup removes expired IAM bindings comparing to current time from the IAM policies.
+func (h *IAMHandler) Cleanup(ctx context.Context, r *v1alpha1.IAMRequest) (nps []*v1alpha1.IAMResponse, retErr error) {
+	expiry := time.Now()
+	for _, p := range r.ResourcePolicies {
+		np, err := h.handlePolicy(ctx, p, expiry, removeExpired)
+		if err != nil {
+			retErr = errors.Join(
+				retErr,
+				fmt.Errorf("failed to cleanup policy for resource %s: %w", p.Resource, err),
+			)
+		}
+		if np != nil {
+			nps = append(nps, np)
+		}
+	}
+	return
+}
+
+func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, expiry time.Time, update updateIAMPolicy) (*v1alpha1.IAMResponse, error) {
 	var iamC IAMClient
 	switch strings.Split(p.Resource, "/")[0] {
 	case "organizations":
@@ -139,10 +160,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 			return fmt.Errorf("failed to get IAM policy: %w", err)
 		}
 
-		// TODO (#44): Continue to handle policy and alert updatePolicy error
-		// differently.
-		// Update the policy with new IAM binding additions.
-		if err := updatePolicy(cp, p.Bindings, expiry); err != nil {
+		if err := update(cp, p.Bindings, expiry); err != nil {
 			return fmt.Errorf("failed to update IAM policy: %w", err)
 		}
 
@@ -165,8 +183,9 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 	return &v1alpha1.IAMResponse{Resource: p.Resource, Policy: np}, nil
 }
 
-// Remove expired bindings and add or update new bindings with expiration condition.
-func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) error {
+// Add or update new bindings with expiration condition.
+// Note this method always return nil.
+func addIAM(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) error {
 	// Convert new bindings to a role to unique bindings map.
 	bsMap := toBindingsMap(bs)
 	// Clean up current policy bindings.
@@ -175,16 +194,6 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) err
 		// Skip non-AOD bindings.
 		if cb.Condition == nil || cb.Condition.Title != ConditionTitle {
 			result = append(result, cb)
-			continue
-		}
-
-		// Skip expired bindings.
-		expired, err := expired(cb.Condition.Expression)
-		if err != nil {
-			// Return error immediately since we don't expect this to fail.
-			return fmt.Errorf("failed to check expiry: %w", err)
-		}
-		if expired {
 			continue
 		}
 
@@ -242,7 +251,36 @@ func toBindingsMap(bs []*v1alpha1.Binding) map[string]map[string]struct{} {
 	return result
 }
 
-func expired(exp string) (bool, error) {
+// Remove expired bindings that thave an expiration time before the given expiry.
+// Note bs, which is bindings to be added, is not used in this method.
+func removeExpired(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) (retErr error) {
+	// Clean up current policy bindings.
+	var result []*iampb.Binding
+	for _, cb := range p.Bindings {
+		// Skip non-AOD bindings.
+		if cb.Condition == nil || cb.Condition.Title != ConditionTitle {
+			result = append(result, cb)
+			continue
+		}
+
+		// Remove expired bindings.
+		expired, err := expired(cb.Condition.Expression, expiry)
+		if err != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("failed to check expiry: %w", err))
+		}
+		if !expired {
+			result = append(result, cb)
+		}
+	}
+	p.Bindings = result
+
+	// Set policy version to 3 to support conditional IAM bindings.
+	// See details here: https://cloud.google.com/iam/docs/policies#specifying-version-set
+	p.Version = 3
+	return retErr
+}
+
+func expired(exp string, expiry time.Time) (bool, error) {
 	matches := expirationRegex.FindStringSubmatch(exp)
 	if len(matches) < 2 {
 		return false, fmt.Errorf("expression %q does not match format %q", exp, "request.time < timestamp('YYYY-MM-DDTHH:MM:SSZ')")
@@ -251,5 +289,5 @@ func expired(exp string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to parse expiration %q: %w", exp, err)
 	}
-	return t.Before(time.Now()), nil
+	return t.Before(expiry), nil
 }
