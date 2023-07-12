@@ -47,18 +47,14 @@ jobs:
     outputs:
       REVIEW_DECISION: '${{ steps.get_review_decision.outputs.REVIEW_DECISION }}'
     steps:
-      - id: 'repo_name'
-        env:
-          REPO: '${{ github.repository }}'
-        run: 'echo "REPO_NAME=${REPO##*/}" >> $GITHUB_OUTPUT'
       - id: 'get_review_decision'
         env:
-          OWNER: '${{ github.repository_owner }}'
-          REPO_NAME: '${{ steps.repo_name.outputs.REPO_NAME }}'
-          PR_NUMBER: '${{ github.event.pull_request.number }}'
+          # Set the GH_TOKEN environment variable to use GitHub CLI in a GitHub Actions workflow.
+          # See ref: https://docs.github.com/en/actions/using-workflows/using-github-cli-in-workflows
           GH_TOKEN: '${{ github.token }}'
         run: |
-          reviewDecision="$(gh api graphql -F owner=$OWNER -F name=$REPO_NAME -F pr_number=$PR_NUMBER -f query='
+          repo=${{ github.repository }}
+          reviewDecision="$(gh api graphql -F owner=${{ github.repository_owner }} -F name=${repo##*/} -F pr_number=${{ github.event.pull_request.number }} -f query='
             query($name: String!, $owner: String!, $pr_number: Int!) {
               repository(owner: $owner, name: $name) {
                 pullRequest(number: $pr_number) {
