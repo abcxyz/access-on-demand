@@ -42,6 +42,11 @@ on:
 env:
   DEFAULT_DURATION: '2h'
   IAM_ERROR_FILENAME: '/tmp/iam_error.txt'
+  AOD_NOTE: |+
+    <strong> Note: </strong>
+    <strong>This is an AOD request, and merging is NOT allowed.</strong> The request will be automatically applied once the code owners approve it. Please close the PR once you are finished.
+    For more instructions, please see [here](https://github.com/abcxyz/aod-template/blob/main/README.md).
+
 
 jobs:
   handle:
@@ -116,7 +121,7 @@ jobs:
           github-token: '${{ github.token }}'
           retries: '3'
           script: |+
-            var req;
+            var body, req;
             const fs = require("fs");
             const outcome = '${{ steps.handle_iam.outcome }}';
             switch (outcome) {
@@ -126,11 +131,7 @@ jobs:
                   { encoding: "utf8" }
                 );
 
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: ${{ github.event.pull_request.number }},
-                  body: `**\`Access on Demand\`** - 🟩 **\`IAM\`** Completed request.
+              body = `**\`Access on Demand\`** - 🟩 **\`IAM\`** request succeeded.
 
             <details>
             <summary>Details</summary>
@@ -141,10 +142,7 @@ jobs:
             \`\`\`
             </details>
 
-            <strong> Note:</strong>
-            <strong>This is an AOD request, and merging is NOT allowed.</strong> The request will be automatically applied once the code owners approve it. Please close the PR once you are finished.
-            For more instructions, please see [here](https://github.com/abcxyz/aod-template/blob/main/README.md).`,
-                });
+            ${{ env.AOD_NOTE }}`;
                 break;
               case 'failure':
                 req = fs.readFileSync(
@@ -155,11 +153,7 @@ jobs:
                   `${{ env.IAM_ERROR_FILENAME }}`,
                   { encoding: "utf8" }
                 );
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: ${{ github.event.pull_request.number }},
-                  body: `**\`Access on Demand\`** - 🟥 **\`IAM\`** Failed to completed request.
+                body = `**\`Access on Demand\`** - 🟥 **\`IAM\`** request failed.
 
             <details>
             <summary>Details</summary>
@@ -175,18 +169,17 @@ jobs:
             \`\`\`
             </details>
 
-            <strong> Note:</strong>
-            <strong>This is an AOD request, and merging is NOT allowed.</strong> The request will be automatically applied once the code owners approve it. Please close the PR once you are finished.
-            For more instructions, please see [here](https://github.com/abcxyz/aod-template/blob/main/README.md).`,
-                });
+            ${{ env.AOD_NOTE }}`;
                 break;
               // step cancelled.
               default:
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: ${{ github.event.pull_request.number }},
-                  body: `**\`Access on Demand\`** - 🟨 **\`IAM\`** request not found`,
-                });
+                body = `**\`Access on Demand\`** - 🟨 **\`IAM\`** request not found.`;
                 break;
             }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ github.event.pull_request.number }},
+              body: body,
+            });
