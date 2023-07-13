@@ -50,6 +50,8 @@ env:
 jobs:
   review_status:
     runs-on: 'ubuntu-latest'
+    permissions:
+      pull-requests: 'read'
     outputs:
       REVIEW_DECISION: '${{ steps.get_review_decision.outputs.REVIEW_DECISION }}'
     steps:
@@ -80,6 +82,7 @@ jobs:
     permissions:
       contents: 'read'
       id-token: 'write'
+      pull-requests: 'write'
     name: 'Handle Request'
     steps:
       - name: 'Checkout Triggering Branch'
