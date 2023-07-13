@@ -41,6 +41,7 @@ on:
 
 env:
   DEFAULT_DURATION: '2h'
+  IAM_ERROR_FILENAME: '/tmp/iam_error.txt'
 
 jobs:
   handle:
@@ -85,19 +86,17 @@ jobs:
               break
             fi
           done
-      # Request will not be handled when iam.yaml file does not exist in the
-      # case of a pull_request_review event, instead it prints out a notice.
+      # Request will not be handled when iam.yaml file is not found.
       - name: 'Handle IAM Request'
+        if: '${{ hashFiles(''iam.yaml'') != '''' }}'
+        id: 'handle_iam'
         env:
           DURATION: '${{ env.LABELED_DURATION || env.DEFAULT_DURATION }}'
           IAM_FILE_PATH: '${{ github.workspace }}/iam.yaml'
           START_TIME: '${{ github.event.review.submitted_at }}'
         run: |
-          if [ -f "iam.yaml" ]; then
-            aod iam handle -path $IAM_FILE_PATH -duration $DURATION -start-time $START_TIME
-          else
-            echo "::notice title=IAM Request Handle::Skip because iam.yaml is not found"
-          fi
+          touch $IAM_ERROR_FILENAME
+          aod iam handle -path $FILE_PATH -duration $DURATION -start-time $START_TIME 2> $IAM_ERROR_FILENAME
       # Request will not be handled when tool.yaml file does not exist in the
       # case of a pull_request_review event, instead it prints out a notice.
       - name: 'Handle CLI Request'
@@ -109,3 +108,85 @@ jobs:
           else
             echo "::notice title=CLI Request Handle::Skip because tool.yaml is not found"
           fi
+
+      - name: 'IAM Request Comment'
+        if: '${{ always()}}'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          github-token: '${{ github.token }}'
+          retries: '3'
+          script: |+
+            var req;
+            const fs = require("fs");
+            const outcome = '${{ steps.handle_iam.outcome }}';
+            switch (outcome) {
+              case 'success':
+                req = fs.readFileSync(
+                  `iam.yaml`,
+                  { encoding: "utf8" }
+                );
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: ${{ github.event.pull_request.number }},
+                  body: `**\`Access on Demand\`** - 🟩 **\`IAM\`** Completed request.
+
+            <details>
+            <summary>Details</summary>
+            Added below IAM permissions, and they will be expired in ${{ env.LABELED_DURATION || env.DEFAULT_DURATION }}.
+
+            \`\`\`
+            ${req}
+            \`\`\`
+            </details>
+
+            <strong> Note:</strong>
+            <strong>This is an AOD request, and merging is NOT allowed.</strong> The request will be automatically applied once the code owners approve it. Please close the PR once you are finished.
+            For more instructions, please see [here](https://github.com/abcxyz/aod-template/blob/main/README.md).`,
+                });
+                break;
+              case 'failure':
+                req = fs.readFileSync(
+                  `iam.yaml`,
+                  { encoding: "utf8" }
+                );
+                const error = fs.readFileSync(
+                  `${{ env.IAM_ERROR_FILENAME }}`,
+                  { encoding: "utf8" }
+                );
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: ${{ github.event.pull_request.number }},
+                  body: `**\`Access on Demand\`** - 🟥 **\`IAM\`** Failed to completed request.
+
+            <details>
+            <summary>Details</summary>
+            Failed to added below IAM permissions.
+
+            \`\`\`
+            ${req}
+            \`\`\`
+
+            Error:
+            \`\`\`
+            ${error}
+            \`\`\`
+            </details>
+
+            <strong> Note:</strong>
+            <strong>This is an AOD request, and merging is NOT allowed.</strong> The request will be automatically applied once the code owners approve it. Please close the PR once you are finished.
+            For more instructions, please see [here](https://github.com/abcxyz/aod-template/blob/main/README.md).`,
+                });
+                break;
+              // step cancelled.
+              default:
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: ${{ github.event.pull_request.number }},
+                  body: `**\`Access on Demand\`** - 🟨 **\`IAM\`** request not found`,
+                });
+                break;
+            }
