@@ -37,6 +37,8 @@ jobs:
   # Check the current status of this pull request with respect to code review.
   review_status:
     runs-on: 'ubuntu-latest'
+    permissions:
+      pull-requests: 'read'
     outputs:
       REVIEW_DECISION: '${{ steps.get_review_decision.outputs.REVIEW_DECISION }}'
     steps:
