@@ -42,10 +42,11 @@ on:
 env:
   DEFAULT_DURATION: '2h'
   IAM_ERROR_FILENAME: '/tmp/iam_error.txt'
-  AOD_NOTE: |+
-    <strong> Note: </strong>
-    <strong>This is an AOD request, and merging is NOT allowed.</strong> The request will be automatically applied once the code owners approve it. Please close the PR once you are finished.
-    For more instructions, please see [here](https://github.com/abcxyz/aod-template/blob/main/README.md).
+  AOD_NOTE: >
+    ⛔️ <strong>This is an AOD request, and merging is NOT allowed.</strong>
+    The request will be automatically applied once the code owners approve it.
+    Please close the PR once you are finished. For more instructions,
+    please see [here](https://github.com/abcxyz/aod-template/blob/main/README.md).
 
 jobs:
   handle:
