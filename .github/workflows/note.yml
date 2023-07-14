@@ -42,5 +42,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: ${{ github.event.pull_request.number }},
-              body: ${{ env.AOD_NOTE }},
+              body: `${{ env.AOD_NOTE }}`,
             });
