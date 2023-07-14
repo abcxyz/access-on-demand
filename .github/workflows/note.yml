@@ -1,0 +1,47 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#      http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Adding a note for AOD requests.
+name: 'aod-note'
+
+on:
+  workflow_call:
+
+env:
+  AOD_NOTE: >
+    ⛔️ <strong>This is an AOD request, and merging is NOT allowed.</strong>
+    The request will be automatically applied once the code owners approve it.
+    Please close the PR once you are finished. For more instructions,
+    please see [here](https://github.com/abcxyz/aod-template/blob/main/README.md).
+
+jobs:
+  note:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      pull-requests: 'write'
+    name: 'Add AOD Note'
+    steps:
+      - name: 'Add AOD Note'
+        if: '${{ hashFiles(''iam.yaml'', ''tool.yaml'') != '''' }}'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          github-token: '${{ github.token }}'
+          retries: '3'
+          script: |+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ github.event.pull_request.number }},
+              body: ${{ env.AOD_NOTE }},
+            });
