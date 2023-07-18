@@ -17,13 +17,19 @@ name: 'aod-note'
 
 on:
   workflow_call:
+    inputs:
+      expiry_hours:
+        description: 'The number of hours an AOD PR should be expired since last updated.'
+        type: 'number'
+        required: true
 
 env:
   AOD_NOTE: >
     ⛔️ <strong>This is an AOD request, and merging is NOT allowed.</strong>
     The request will be automatically applied once the code owners approve it.
-    Please close the PR once you are finished. For more instructions,
-    please see [here](https://github.com/abcxyz/aod-template/blob/main/README.md).
+    Please close the PR once you are finished or it will automatically be closed
+    after ~${{ inputs.expiry_hours }} hours of it's last update. For more
+    instructions, please see [here](https://github.com/abcxyz/aod-template/blob/main/README.md).
 
 jobs:
   note:
