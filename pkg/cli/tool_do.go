@@ -52,7 +52,7 @@ func (c *ToolDoCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to setup command: %w", err)
 	}
 
-	if err:= h.Do(ctx, req); err != nil {
+	if err := h.Do(ctx, req); err != nil {
 		return fmt.Errorf(`failed to run "do" commands: %w`, err)
 	}
 	c.Outf(`Successfully completed commands`)

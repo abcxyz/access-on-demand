@@ -52,7 +52,7 @@ func (c *ToolCleanupCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to setup command: %w", err)
 	}
 
-	if err:= h.Cleanup(ctx, req); err != nil {
+	if err := h.Cleanup(ctx, req); err != nil {
 		return fmt.Errorf(`failed to run "cleanup" commands: %w`, err)
 	}
 	c.Outf(`Successfully completed commands`)
