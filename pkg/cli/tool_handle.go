@@ -25,10 +25,10 @@ import (
 	"github.com/posener/complete/v2/predict"
 )
 
-var _ cli.Command = (*CLIHandleCommand)(nil)
+var _ cli.Command = (*ToolHandleCommand)(nil)
 
-// CLIHandleCommand handles CLI requests.
-type CLIHandleCommand struct {
+// ToolHandleCommand handles tool requests.
+type ToolHandleCommand struct {
 	cli.BaseCommand
 
 	flagPath string
@@ -38,29 +38,29 @@ type CLIHandleCommand struct {
 	// Run Cleanup instead of Do if true.
 	Cleanup bool
 
-	// testCLI is used for testing only.
-	testCLI string
+	// testTool is used for testing only.
+	testTool string
 }
 
-func (c *CLIHandleCommand) Desc() string {
-	return `Handle the CLI request YAML file at the given path`
+func (c *ToolHandleCommand) Desc() string {
+	return `Handle the tool request YAML file at the given path`
 }
 
-func (c *CLIHandleCommand) Help() string {
+func (c *ToolHandleCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
-Handle CLI request YAML file at the given path:
+Handle tool request YAML file at the given path:
 
       {{ COMMAND }} -path "/path/to/file.yaml"
 
-Handle CLI request YAML file at the given path in debug mode:
+Handle tool request YAML file at the given path in debug mode:
 
       {{ COMMAND }} -path "/path/to/file.yaml" -debug
 `
 }
 
-func (c *CLIHandleCommand) Flags() *cli.FlagSet {
+func (c *ToolHandleCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
 
 	// Command options
@@ -71,7 +71,7 @@ func (c *CLIHandleCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagPath,
 		Example: "/path/to/file.yaml",
 		Predict: predict.Files("*"),
-		Usage:   `The path of CLI request file, in YAML format.`,
+		Usage:   `The path of tool request file, in YAML format.`,
 	})
 
 	f.BoolVar(&cli.BoolVar{
@@ -84,7 +84,7 @@ func (c *CLIHandleCommand) Flags() *cli.FlagSet {
 	return set
 }
 
-func (c *CLIHandleCommand) Run(ctx context.Context, args []string) error {
+func (c *ToolHandleCommand) Run(ctx context.Context, args []string) error {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
@@ -101,26 +101,26 @@ func (c *CLIHandleCommand) Run(ctx context.Context, args []string) error {
 	return c.handle(ctx)
 }
 
-func (c *CLIHandleCommand) handle(ctx context.Context) error {
+func (c *ToolHandleCommand) handle(ctx context.Context) error {
 	// Read request from file path.
-	var req v1alpha1.CLIRequest
+	var req v1alpha1.ToolRequest
 	if err := requestutil.ReadRequestFromPath(c.flagPath, &req); err != nil {
 		return fmt.Errorf("failed to read %T: %w", &req, err)
 	}
 
-	if err := v1alpha1.ValidateCLIRequest(&req); err != nil {
+	if err := v1alpha1.ValidateToolRequest(&req); err != nil {
 		return fmt.Errorf("failed to validate %T: %w", &req, err)
 	}
 
-	opts := []handler.CLIHandlerOption{handler.WithStderr(c.Stderr())}
+	opts := []handler.ToolHandlerOption{handler.WithStderr(c.Stderr())}
 	if c.flagDebug {
 		opts = append(opts, handler.WithDebugMode(c.Stdout()))
 	}
-	h := handler.NewCLIHandler(ctx, opts...)
+	h := handler.NewToolHandler(ctx, opts...)
 
-	// Use testCLI if it is for testing.
-	if c.testCLI != "" {
-		req.Tool = c.testCLI
+	// Use testTool if it is for testing.
+	if c.testTool != "" {
+		req.Tool = c.testTool
 	}
 	var err error
 	if c.Cleanup {

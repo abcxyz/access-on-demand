@@ -68,15 +68,15 @@ func ValidateIAMRequest(r *IAMRequest) (retErr error) {
 	return
 }
 
-// ValidateCLIRequest checks if the CLIRequest is valid.
-func ValidateCLIRequest(r *CLIRequest) (retErr error) {
-	// Set default CLI
+// ValidateToolRequest checks if the ToolRequest is valid.
+func ValidateToolRequest(r *ToolRequest) (retErr error) {
+	// Set default tool.
 	if r.Tool == "" {
 		r.Tool = defaultTool
 	}
-	// TODO (#49): support other CLI tools.
+	// TODO (#49): support other tools.
 	if r.Tool != defaultTool {
-		retErr = errors.Join(retErr, fmt.Errorf("CLI %q is not supported", r.Tool))
+		retErr = errors.Join(retErr, fmt.Errorf("tool %q is not supported", r.Tool))
 	}
 
 	// Check if the do commands are valid.

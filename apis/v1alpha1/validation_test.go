@@ -201,17 +201,17 @@ func TestValidateIAMRequest(t *testing.T) {
 	}
 }
 
-func TestValidateCLIRequest(t *testing.T) {
+func TestValidateToolRequest(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name    string
-		request *CLIRequest
+		request *ToolRequest
 		wantErr string
 	}{
 		{
 			name: "success",
-			request: &CLIRequest{
+			request: &ToolRequest{
 				Tool: "gcloud",
 				Do: []string{
 					"run jobs execute my-job1",
@@ -224,8 +224,8 @@ func TestValidateCLIRequest(t *testing.T) {
 			},
 		},
 		{
-			name: "success_with_default_cli",
-			request: &CLIRequest{
+			name: "success_with_default_tool",
+			request: &ToolRequest{
 				Do: []string{
 					"run jobs execute my-job1",
 					"run jobs execute my-job2",
@@ -237,8 +237,8 @@ func TestValidateCLIRequest(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid_cli",
-			request: &CLIRequest{
+			name: "invalid_tool",
+			request: &ToolRequest{
 				Tool: "aws",
 				Do: []string{
 					"run jobs execute my-job",
@@ -247,11 +247,11 @@ func TestValidateCLIRequest(t *testing.T) {
 					"run jobs executions delete my-execution",
 				},
 			},
-			wantErr: `CLI "aws" is not supported`,
+			wantErr: `tool "aws" is not supported`,
 		},
 		{
 			name: "invalid_do_command",
-			request: &CLIRequest{
+			request: &ToolRequest{
 				Do: []string{
 					`run
 jobs execute my-job && rmdir dir`,
@@ -265,7 +265,7 @@ disallowed command character '&' at 2:21`,
 		},
 		{
 			name: "invalid_cleanup_command",
-			request: &CLIRequest{
+			request: &ToolRequest{
 				Do: []string{
 					"run jobs execute my-job",
 				},
@@ -283,7 +283,7 @@ disallowed command character '&' at 2:21`,
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotErr := ValidateCLIRequest(tc.request)
+			gotErr := ValidateToolRequest(tc.request)
 			if diff := testutil.DiffErrString(gotErr, tc.wantErr); diff != "" {
 				t.Errorf("Process %s got unexpected error: %s", tc.name, diff)
 			}

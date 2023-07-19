@@ -48,14 +48,14 @@ var rootCmd = func() cli.Command {
 					Description: "Perform operations to run CLI tools on demand",
 					Commands: map[string]cli.CommandFactory{
 						"do": func() cli.Command {
-							return &CLIHandleCommand{}
+							return &ToolHandleCommand{}
 						},
 						"cleanup": func() cli.Command {
 							// TODO(#58): Cleanup as an input is anti-pattern, need a better command structure.
-							return &CLIHandleCommand{Cleanup: true}
+							return &ToolHandleCommand{Cleanup: true}
 						},
 						"validate": func() cli.Command {
-							return &CLIValidateCommand{}
+							return &ToolValidateCommand{}
 						},
 					},
 				}

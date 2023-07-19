@@ -25,43 +25,43 @@ import (
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 )
 
-// CLIHandler runs cli commands in the CLIRequest.
-type CLIHandler struct {
+// ToolHandler runs tool commands in the ToolRequest.
+type ToolHandler struct {
 	// By default, stdout discards the command outputs, stderr is os.Stderr.
 	stdout, stderr io.Writer
 }
 
-// CLIHandlerOption is the option to set up an CLIHandler.
-type CLIHandlerOption func(h *CLIHandler) *CLIHandler
+// ToolHandlerOption is the option to set up an ToolHandler.
+type ToolHandlerOption func(h *ToolHandler) *ToolHandler
 
 // WithStderr sets the handler's stderr.
-func WithStderr(w io.Writer) CLIHandlerOption {
-	return func(h *CLIHandler) *CLIHandler {
+func WithStderr(w io.Writer) ToolHandlerOption {
+	return func(h *ToolHandler) *ToolHandler {
 		h.stderr = w
 		return h
 	}
 }
 
 // WithDebugMode sets the handler's stdout to w.
-func WithDebugMode(w io.Writer) CLIHandlerOption {
-	return func(h *CLIHandler) *CLIHandler {
+func WithDebugMode(w io.Writer) ToolHandlerOption {
+	return func(h *ToolHandler) *ToolHandler {
 		h.stdout = w
 		return h
 	}
 }
 
 // WithDefaultDebugMode sets the handler's stdout to os.Stdout.
-func WithDefaultDebugMode() CLIHandlerOption {
-	return func(h *CLIHandler) *CLIHandler {
+func WithDefaultDebugMode() ToolHandlerOption {
+	return func(h *ToolHandler) *ToolHandler {
 		h.stdout = os.Stdout
 		return h
 	}
 }
 
-// NewCLIHandler creates a new CLIHandler with provided options.
-func NewCLIHandler(ctx context.Context, opts ...CLIHandlerOption) *CLIHandler {
+// NewToolHandler creates a new ToolHandler with provided options.
+func NewToolHandler(ctx context.Context, opts ...ToolHandlerOption) *ToolHandler {
 	// Set default stderr.
-	h := &CLIHandler{stderr: os.Stderr}
+	h := &ToolHandler{stderr: os.Stderr}
 	for _, opt := range opts {
 		h = opt(h)
 	}
@@ -69,18 +69,18 @@ func NewCLIHandler(ctx context.Context, opts ...CLIHandlerOption) *CLIHandler {
 }
 
 // Do runs the do commands.
-func (h *CLIHandler) Do(ctx context.Context, r *v1alpha1.CLIRequest) error {
+func (h *ToolHandler) Do(ctx context.Context, r *v1alpha1.ToolRequest) error {
 	return h.run(r.Tool, r.Do)
 }
 
 // Cleanup runs the cleanup commands.
-func (h *CLIHandler) Cleanup(ctx context.Context, r *v1alpha1.CLIRequest) error {
+func (h *ToolHandler) Cleanup(ctx context.Context, r *v1alpha1.ToolRequest) error {
 	return h.run(r.Tool, r.Cleanup)
 }
 
-func (h *CLIHandler) run(cli string, cmds []string) error {
+func (h *ToolHandler) run(tool string, cmds []string) error {
 	for _, c := range cmds {
-		cmd := exec.Command(cli, c)
+		cmd := exec.Command(tool, c)
 		// If stdout is set, debug mode is on and it writes the command output to
 		// stdout.
 		if h.stdout != nil {

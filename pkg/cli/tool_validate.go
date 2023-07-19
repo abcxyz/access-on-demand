@@ -24,30 +24,30 @@ import (
 	"github.com/posener/complete/v2/predict"
 )
 
-var _ cli.Command = (*CLIValidateCommand)(nil)
+var _ cli.Command = (*ToolValidateCommand)(nil)
 
-// CLIValidateCommand validates CLI requests.
-type CLIValidateCommand struct {
+// ToolValidateCommand validates tool requests.
+type ToolValidateCommand struct {
 	cli.BaseCommand
 
 	flagPath string
 }
 
-func (c *CLIValidateCommand) Desc() string {
-	return `Validate the CLI request YAML file at the given path`
+func (c *ToolValidateCommand) Desc() string {
+	return `Validate the tool request YAML file at the given path`
 }
 
-func (c *CLIValidateCommand) Help() string {
+func (c *ToolValidateCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
-Validate the IAM request YAML file at the given path:
+Validate the tool request YAML file at the given path:
 
       {{ COMMAND }} -path "/path/to/file.yaml"
 `
 }
 
-func (c *CLIValidateCommand) Flags() *cli.FlagSet {
+func (c *ToolValidateCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
 
 	// Command options
@@ -58,13 +58,13 @@ func (c *CLIValidateCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagPath,
 		Example: "/path/to/file.yaml",
 		Predict: predict.Files("*"),
-		Usage:   `The path of CLI request file, in YAML format.`,
+		Usage:   `The path of tool request file, in YAML format.`,
 	})
 
 	return set
 }
 
-func (c *CLIValidateCommand) Run(ctx context.Context, args []string) error {
+func (c *ToolValidateCommand) Run(ctx context.Context, args []string) error {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
@@ -81,17 +81,17 @@ func (c *CLIValidateCommand) Run(ctx context.Context, args []string) error {
 	return c.validate(ctx)
 }
 
-func (c *CLIValidateCommand) validate(ctx context.Context) error {
+func (c *ToolValidateCommand) validate(ctx context.Context) error {
 	// Read request from file path.
-	var req v1alpha1.CLIRequest
+	var req v1alpha1.ToolRequest
 	if err := requestutil.ReadRequestFromPath(c.flagPath, &req); err != nil {
 		return fmt.Errorf("failed to read %T: %w", &req, err)
 	}
 
-	if err := v1alpha1.ValidateCLIRequest(&req); err != nil {
+	if err := v1alpha1.ValidateToolRequest(&req); err != nil {
 		return fmt.Errorf("failed to validate %T: %w", &req, err)
 	}
-	c.Outf("Successfully validated CLI request")
+	c.Outf("Successfully validated tool request")
 
 	return nil
 }

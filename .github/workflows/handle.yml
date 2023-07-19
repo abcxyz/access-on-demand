@@ -126,14 +126,14 @@ jobs:
           aod iam handle -path ${{ env.IAM_FILE_PATH }} -duration ${{ env.DURATION }} -start-time ${{ env.START_TIME }} 2> ${{ env.IAM_ERROR_FILENAME }}
       # Request will not be handled when tool.yaml file does not exist in the
       # case of a pull_request_review event, instead it prints out a notice.
-      - name: 'Handle CLI Request'
+      - name: 'Handle Tool Request'
         env:
-          CLI_FILE_PATH: '${{ github.workspace }}/tool.yaml'
+          TOOL_FILE_PATH: '${{ github.workspace }}/tool.yaml'
         run: |
           if [ -f "tool.yaml" ]; then
-            aod tool do -path ${{ env.CLI_FILE_PATH }}
+            aod tool do -path ${{ env.TOOL_FILE_PATH }}
           else
-            echo "::notice title=CLI Request Handle::Skip because tool.yaml is not found"
+            echo "::notice title=Tool Request Handle::Skip because tool.yaml is not found"
           fi
 
       - name: 'IAM Request Comment'

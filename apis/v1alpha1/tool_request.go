@@ -14,10 +14,10 @@
 
 package v1alpha1
 
-// CLIRequest represents a request to run CLI commands.
-type CLIRequest struct {
+// ToolRequest represents a request to run tool commands.
+type ToolRequest struct {
 	// Tool name such as gcloud.
-	Tool string `yaml:"cli,omitempty"`
+	Tool string `yaml:"tool,omitempty"`
 
 	// List of commands without tool name.
 	Do []string `yaml:"do,omitempty"`
