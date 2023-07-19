@@ -109,7 +109,6 @@ func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps
 }
 
 func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, expiry time.Time) (*v1alpha1.IAMResponse, error) {
-	logger := logging.FromContext(ctx)
 	var iamC IAMClient
 	switch strings.Split(p.Resource, "/")[0] {
 	case "organizations":
@@ -141,9 +140,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 			return fmt.Errorf("failed to get IAM policy: %w", err)
 		}
 
-		if err := updatePolicy(cp, p.Bindings, expiry); err != nil {
-			logger.Warnf("encountered error while updating IAM policy for resource %q: %w", p.Resource, err)
-		}
+		updatePolicy(ctx, cp, p.Bindings, expiry)
 
 		// Set the new policy.
 		setIAMPolicyRequest := &iampb.SetIamPolicyRequest{
@@ -165,7 +162,8 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 }
 
 // Remove expired bindings and add or update new bindings with expiration condition.
-func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) (retErr error) {
+func updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
+	logger := logging.FromContext(ctx)
 	// Convert new bindings to a role to unique bindings map.
 	bsMap := toBindingsMap(bs)
 	// Clean up current policy bindings.
@@ -180,7 +178,7 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) (re
 		// Skip expired bindings.
 		expired, err := expired(cb.Condition.Expression)
 		if err != nil {
-			retErr = errors.Join(retErr, fmt.Errorf("failed to check expiry: %w", err))
+			logger.Warnf("failed to check expiry: %w", err)
 		}
 		if expired {
 			continue
@@ -224,7 +222,6 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) (re
 	// Set policy version to 3 to support conditional IAM bindings.
 	// See details here: https://cloud.google.com/iam/docs/policies#specifying-version-set
 	p.Version = 3
-	return retErr
 }
 
 func toBindingsMap(bs []*v1alpha1.Binding) map[string]map[string]struct{} {
