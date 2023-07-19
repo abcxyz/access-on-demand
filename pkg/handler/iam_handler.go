@@ -26,6 +26,7 @@ import (
 
 	"cloud.google.com/go/iam/apiv1/iampb"
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
+	"github.com/abcxyz/pkg/logging"
 	"github.com/googleapis/gax-go/v2"
 	"github.com/sethvargo/go-retry"
 	"google.golang.org/genproto/googleapis/type/expr"
@@ -108,6 +109,7 @@ func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps
 }
 
 func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, expiry time.Time) (*v1alpha1.IAMResponse, error) {
+	logger := logging.FromContext(ctx)
 	var iamC IAMClient
 	switch strings.Split(p.Resource, "/")[0] {
 	case "organizations":
@@ -139,11 +141,8 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 			return fmt.Errorf("failed to get IAM policy: %w", err)
 		}
 
-		// TODO (#44): Continue to handle policy and alert updatePolicy error
-		// differently.
-		// Update the policy with new IAM binding additions.
 		if err := updatePolicy(cp, p.Bindings, expiry); err != nil {
-			return fmt.Errorf("failed to update IAM policy: %w", err)
+			logger.Warnf("encountered error while updating IAM policy for resource %q: %w", p.Resource, err)
 		}
 
 		// Set the new policy.
@@ -166,7 +165,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 }
 
 // Remove expired bindings and add or update new bindings with expiration condition.
-func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) error {
+func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) (retErr error) {
 	// Convert new bindings to a role to unique bindings map.
 	bsMap := toBindingsMap(bs)
 	// Clean up current policy bindings.
@@ -181,8 +180,7 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) err
 		// Skip expired bindings.
 		expired, err := expired(cb.Condition.Expression)
 		if err != nil {
-			// Return error immediately since we don't expect this to fail.
-			return fmt.Errorf("failed to check expiry: %w", err)
+			retErr = errors.Join(retErr, fmt.Errorf("failed to check expiry: %w", err))
 		}
 		if expired {
 			continue
@@ -226,7 +224,7 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) err
 	// Set policy version to 3 to support conditional IAM bindings.
 	// See details here: https://cloud.google.com/iam/docs/policies#specifying-version-set
 	p.Version = 3
-	return nil
+	return retErr
 }
 
 func toBindingsMap(bs []*v1alpha1.Binding) map[string]map[string]struct{} {

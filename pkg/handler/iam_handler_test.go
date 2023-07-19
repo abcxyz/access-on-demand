@@ -457,7 +457,36 @@ func TestDo(t *testing.T) {
 				Duration:  2 * time.Hour,
 				StartTime: now,
 			},
-			wantErrSubstr: `does not match format "request.time < timestamp('YYYY-MM-DDTHH:MM:SSZ')"`,
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "organizations/foo",
+					Policy: &iampb.Policy{
+						Bindings: []*iampb.Binding{
+							{
+								Members: []string{
+									"user:test-org-userB@example.com",
+								},
+								Role: "roles/accessapproval.approver",
+								Condition: &expr.Expr{
+									Title:      ConditionTitle,
+									Expression: fmt.Sprintf("request.time <= timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
+								},
+							},
+							{
+								Members: []string{
+									"user:test-org-userA@example.com",
+								},
+								Role: "roles/bigquery.dataViewer",
+								Condition: &expr.Expr{
+									Title:      ConditionTitle,
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
+								},
+							},
+						},
+						Version: 3,
+					},
+				},
+			},
 			wantOrganizationsPolicy: &iampb.Policy{
 				Bindings: []*iampb.Binding{
 					{
@@ -470,7 +499,18 @@ func TestDo(t *testing.T) {
 							Expression: fmt.Sprintf("request.time <= timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
 						},
 					},
+					{
+						Members: []string{
+							"user:test-org-userA@example.com",
+						},
+						Role: "roles/bigquery.dataViewer",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
+						},
+					},
 				},
+				Version: 3,
 			},
 			wantFoldersPolicy:  &iampb.Policy{},
 			wantProjectsPolicy: &iampb.Policy{},
@@ -518,7 +558,36 @@ func TestDo(t *testing.T) {
 				Duration:  2 * time.Hour,
 				StartTime: now,
 			},
-			wantErrSubstr: "failed to parse expiration",
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "organizations/foo",
+					Policy: &iampb.Policy{
+						Bindings: []*iampb.Binding{
+							{
+								Members: []string{
+									"user:test-org-userB@example.com",
+								},
+								Role: "roles/accessapproval.approver",
+								Condition: &expr.Expr{
+									Title:      ConditionTitle,
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC850)),
+								},
+							},
+							{
+								Members: []string{
+									"user:test-org-userA@example.com",
+								},
+								Role: "roles/bigquery.dataViewer",
+								Condition: &expr.Expr{
+									Title:      ConditionTitle,
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
+								},
+							},
+						},
+						Version: 3,
+					},
+				},
+			},
 			wantOrganizationsPolicy: &iampb.Policy{
 				Bindings: []*iampb.Binding{
 					{
@@ -531,7 +600,18 @@ func TestDo(t *testing.T) {
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC850)),
 						},
 					},
+					{
+						Members: []string{
+							"user:test-org-userA@example.com",
+						},
+						Role: "roles/bigquery.dataViewer",
+						Condition: &expr.Expr{
+							Title:      ConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
+						},
+					},
 				},
+				Version: 3,
 			},
 			wantFoldersPolicy:  &iampb.Policy{},
 			wantProjectsPolicy: &iampb.Policy{},
