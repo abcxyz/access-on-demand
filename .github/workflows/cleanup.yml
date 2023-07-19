@@ -65,7 +65,7 @@ jobs:
 
           echo REVIEW_DECISION=$reviewDecision >> $GITHUB_OUTPUT
 
-  # Only run CLI request cleanup when the pull request is approved.
+  # Only run Tool request cleanup when the pull request is approved.
   cleanup:
     needs: 'review_status'
     if: '${{ needs.review_status.outputs.REVIEW_DECISION == ''APPROVED'' }}'
@@ -73,7 +73,7 @@ jobs:
     permissions:
       contents: 'read'
       id-token: 'write'
-    name: 'Handle CLI Request Cleanup'
+    name: 'Handle Tool Request Cleanup'
     steps:
       - name: 'Checkout Triggering Branch'
         uses: 'actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab' # ratchet:actions/checkout@v3

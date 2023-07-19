@@ -26,13 +26,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestCLIValidateCommand(t *testing.T) {
+func TestToolHandleCommand(t *testing.T) {
 	t.Parallel()
 
-	// Set up CLI request file.
+	// Set up tool request file.
 	requestFileContentByName := map[string]string{
 		"valid.yaml": `
-cli: 'gcloud'
+tool: 'gcloud'
 do:
   - 'do1'
   - 'do2'
@@ -41,7 +41,7 @@ cleanup:
   - 'cleanup2'
 `,
 		"invalid-request.yaml": `
-cli: 'cli_not_exist'
+tool: 'tool_not_exist'
 do:
   - 'do'
 cleanup:
@@ -58,15 +58,45 @@ cleanup:
 	}
 
 	cases := []struct {
-		name   string
-		args   []string
-		expOut string
-		expErr string
+		name      string
+		args      []string
+		testTool  string
+		cleanup   bool
+		expOut    string
+		expErr    string
+		expStdErr string
 	}{
 		{
-			name:   "success",
-			args:   []string{"-path", filepath.Join(dir, "valid.yaml")},
-			expOut: `Successfully validated CLI request`,
+			name:     "success_do",
+			args:     []string{"-path", filepath.Join(dir, "valid.yaml")},
+			testTool: "echo",
+			expOut:   `Successfully completed commands`,
+		},
+		{
+			name:     "success_do_with_debug",
+			args:     []string{"-path", filepath.Join(dir, "valid.yaml"), "-debug"},
+			testTool: "echo",
+			expOut: `
+do1
+do2
+Successfully completed commands`,
+		},
+		{
+			name:     "success_cleanup",
+			args:     []string{"-path", filepath.Join(dir, "valid.yaml")},
+			testTool: "echo",
+			cleanup:  true,
+			expOut:   `Successfully completed commands`,
+		},
+		{
+			name:     "success_cleanup_with_debug",
+			args:     []string{"-path", filepath.Join(dir, "valid.yaml"), "-debug"},
+			testTool: "echo",
+			cleanup:  true,
+			expOut: `
+cleanup1
+cleanup2
+Successfully completed commands`,
 		},
 		{
 			name:   "unexpected_args",
@@ -81,12 +111,27 @@ cleanup:
 		{
 			name:   "invalid_yaml",
 			args:   []string{"-path", filepath.Join(dir, "invalid.yaml")},
-			expErr: "failed to read *v1alpha1.CLIRequest",
+			expErr: "failed to read *v1alpha1.ToolRequest",
+		},
+		{
+			name:      "handler_do_failure",
+			args:      []string{"-path", filepath.Join(dir, "valid.yaml")},
+			testTool:  "ls",
+			expErr:    `failed to run command "do1"`,
+			expStdErr: "ls: cannot access 'do1': No such file or directory",
+		},
+		{
+			name:      "handler_cleanup_failure",
+			args:      []string{"-path", filepath.Join(dir, "valid.yaml")},
+			testTool:  "ls",
+			cleanup:   true,
+			expErr:    `failed to run command "cleanup1"`,
+			expStdErr: "ls: cannot access 'cleanup1': No such file or directory",
 		},
 		{
 			name:   "invalid_request",
 			args:   []string{"-path", filepath.Join(dir, "invalid-request.yaml")},
-			expErr: "failed to validate *v1alpha1.CLIRequest",
+			expErr: "failed to validate *v1alpha1.ToolRequest",
 		},
 	}
 
@@ -98,8 +143,11 @@ cleanup:
 
 			ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
-			var cmd CLIValidateCommand
-			_, stdout, _ := cmd.Pipe()
+			cmd := ToolHandleCommand{
+				Cleanup:  tc.cleanup,
+				testTool: tc.testTool,
+			}
+			_, stdout, stderr := cmd.Pipe()
 
 			args := append([]string{}, tc.args...)
 
@@ -109,6 +157,9 @@ cleanup:
 			}
 			if diff := cmp.Diff(strings.TrimSpace(tc.expOut), strings.TrimSpace(stdout.String())); diff != "" {
 				t.Errorf("Process(%+v) got output diff (-want, +got):\n%s", tc.name, diff)
+			}
+			if diff := cmp.Diff(strings.TrimSpace(tc.expStdErr), strings.TrimSpace(stderr.String())); diff != "" {
+				t.Errorf("Process(%+v) got command error diff (-want, +got):\n%s", tc.name, diff)
 			}
 		})
 	}

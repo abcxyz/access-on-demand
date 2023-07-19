@@ -26,19 +26,19 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestCLIHandlerDo(t *testing.T) {
+func TestToolHandlerDo(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name               string
-		request            *v1alpha1.CLIRequest
+		request            *v1alpha1.ToolRequest
 		expHandleErrSubStr string
 		expOutErr          string
 		expOutResponse     string
 	}{
 		{
 			name: "success",
-			request: &v1alpha1.CLIRequest{
+			request: &v1alpha1.ToolRequest{
 				Tool: "echo",
 				Do: []string{
 					"test do1",
@@ -48,8 +48,8 @@ func TestCLIHandlerDo(t *testing.T) {
 			expOutResponse: "test do1\ntest do2",
 		},
 		{
-			name: "invalid_cli_command",
-			request: &v1alpha1.CLIRequest{
+			name: "invalid_tool",
+			request: &v1alpha1.ToolRequest{
 				Tool: "invalid",
 				Do: []string{
 					"test do",
@@ -58,8 +58,8 @@ func TestCLIHandlerDo(t *testing.T) {
 			expHandleErrSubStr: `failed to run command "test do"`,
 		},
 		{
-			name: "failed_to_execute_cli_command",
-			request: &v1alpha1.CLIRequest{
+			name: "failed_to_execute_tool_command",
+			request: &v1alpha1.ToolRequest{
 				Tool: "ls",
 				Do: []string{
 					"dir_not_exist",
@@ -79,7 +79,7 @@ func TestCLIHandlerDo(t *testing.T) {
 			ctx := context.Background()
 			stderr := bytes.NewBuffer(nil)
 			stdout := bytes.NewBuffer(nil)
-			h := NewCLIHandler(ctx, WithStderr(stderr), WithDebugMode(stdout))
+			h := NewToolHandler(ctx, WithStderr(stderr), WithDebugMode(stdout))
 
 			// Run test.
 			gotErr := h.Do(ctx, tc.request)
@@ -96,19 +96,19 @@ func TestCLIHandlerDo(t *testing.T) {
 	}
 }
 
-func TestCLIHandlerCleanup(t *testing.T) {
+func TestToolHandlerCleanup(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name               string
-		request            *v1alpha1.CLIRequest
+		request            *v1alpha1.ToolRequest
 		expHandleErrSubStr string
 		expOutErr          string
 		expOutResponse     string
 	}{
 		{
 			name: "success",
-			request: &v1alpha1.CLIRequest{
+			request: &v1alpha1.ToolRequest{
 				Tool: "echo",
 				Cleanup: []string{
 					"test do1",
@@ -118,8 +118,8 @@ func TestCLIHandlerCleanup(t *testing.T) {
 			expOutResponse: "test do1\ntest do2",
 		},
 		{
-			name: "invalid_cli_command",
-			request: &v1alpha1.CLIRequest{
+			name: "invalid_tool",
+			request: &v1alpha1.ToolRequest{
 				Tool: "invalid",
 				Cleanup: []string{
 					"test do",
@@ -128,8 +128,8 @@ func TestCLIHandlerCleanup(t *testing.T) {
 			expHandleErrSubStr: `failed to run command "test do"`,
 		},
 		{
-			name: "failed_to_execute_cli_command",
-			request: &v1alpha1.CLIRequest{
+			name: "failed_to_execute_tool",
+			request: &v1alpha1.ToolRequest{
 				Tool: "ls",
 				Cleanup: []string{
 					"dir_not_exist",
@@ -149,7 +149,7 @@ func TestCLIHandlerCleanup(t *testing.T) {
 			ctx := context.Background()
 			stderr := bytes.NewBuffer(nil)
 			stdout := bytes.NewBuffer(nil)
-			h := NewCLIHandler(ctx, WithStderr(stderr), WithDebugMode(stdout))
+			h := NewToolHandler(ctx, WithStderr(stderr), WithDebugMode(stdout))
 
 			// Run test.
 			gotErr := h.Cleanup(ctx, tc.request)
