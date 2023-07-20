@@ -140,6 +140,10 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 			return fmt.Errorf("failed to get IAM policy: %w", err)
 		}
 
+		// updatePolicy also does best effort cleanup which removes any expired AOD
+		// bindings, however any errors encounterred during removal will be ignored
+		// and policy update for the request will continue. Removal errors should be
+		// handled separately such as in a global IAM cleanup.
 		updatePolicy(ctx, cp, p.Bindings, expiry)
 
 		// Set the new policy.
@@ -180,7 +184,7 @@ func updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, 
 		if err != nil {
 			// Continue policy update when there is error checking the AOD expiry.
 			// This type of error will be handled in a global cleanup job.
-			logger.Warnf("failed to check expiry: %w", err)
+			logger.Warnw("failed to check expiry", "error", err)
 		}
 		if expired {
 			continue
