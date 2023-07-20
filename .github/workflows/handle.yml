@@ -41,6 +41,7 @@ on:
 env:
   DEFAULT_DURATION: '2h'
   IAM_ERROR_FILENAME: '/tmp/iam_error.txt'
+  TOOL_ERROR_FILENAME: '/tmp/tool_error.txt'
 
 jobs:
   review_status:
@@ -127,17 +128,16 @@ jobs:
       # Request will not be handled when tool.yaml file does not exist in the
       # case of a pull_request_review event, instead it prints out a notice.
       - name: 'Handle Tool Request'
+        if: '${{ hashFiles(''tool.yaml'') != '''' }}'
+        id: 'handle_tool'
         env:
           TOOL_FILE_PATH: '${{ github.workspace }}/tool.yaml'
         run: |
-          if [ -f "tool.yaml" ]; then
-            aod tool do -path ${{ env.TOOL_FILE_PATH }}
-          else
-            echo "::notice title=Tool Request Handle::Skip because tool.yaml is not found"
-          fi
+          touch ${{ env.TOOL_ERROR_FILENAME }}
+          aod tool do -path ${{ env.TOOL_FILE_PATH }} 2> ${{ env.TOOL_ERROR_FILENAME }}
 
       - name: 'IAM Request Comment'
-        if: '${{ always()}}'
+        if: '${{ always() && hashFiles(''iam.yaml'') != '''' }}'
         uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
         with:
           github-token: '${{ github.token }}'
@@ -191,13 +191,99 @@ jobs:
                 break;
               // step cancelled.
               default:
-                body = `**\`Access on Demand\`** - 🟨 **\`IAM\`** request not found. To require IAM permission on demand, add an iam.yaml file at repo root.`;
+                // Do nothing.
                 break;
             }
 
+            if (typeof body !== "undefined") {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: ${{ github.event.pull_request.number }},
+                body: body,
+              });
+            }
+
+      - name: 'Tool Request Comment'
+        if: '${{ always() && hashFiles(''tool.yaml'') != '''' }}'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          github-token: '${{ github.token }}'
+          retries: '3'
+          script: |+
+            var body, req;
+            const fs = require("fs");
+            const outcome = '${{ steps.handle_tool.outcome }}';
+            switch (outcome) {
+              case 'success':
+                req = fs.readFileSync(
+                  `tool.yaml`,
+                  { encoding: "utf8" }
+                );
+
+              body = `**\`Access on Demand\`** - 🟩 **\`Tool\`** request succeeded.
+
+            <details>
+            <summary>Details</summary>
+            Executed "do" commands in the request below.
+
+            \`\`\`
+            ${req}
+            \`\`\`
+            </details>`;
+                break;
+              case 'failure':
+                req = fs.readFileSync(
+                  `tool.yaml`,
+                  { encoding: "utf8" }
+                );
+                const error = fs.readFileSync(
+                  `${{ env.TOOL_ERROR_FILENAME }}`,
+                  { encoding: "utf8" }
+                );
+                body = `**\`Access on Demand\`** - 🟥 **\`Tool\`** request failed.
+
+            <details>
+            <summary>Details</summary>
+            Failed to execute "do" commands in the request below.
+
+            \`\`\`
+            ${req}
+            \`\`\`
+
+            Error:
+            \`\`\`
+            ${error}
+            \`\`\`
+            </details>`;
+                break;
+              // step cancelled.
+              default:
+                // Do nothing.
+                break;
+            }
+
+            if (typeof body !== "undefined") {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: ${{ github.event.pull_request.number }},
+                body: body,
+              });
+            }
+
+      - name: 'Request Not Found Comment'
+        if: '${{ always() && hashFiles(''iam.yaml'', ''tool.yaml'') == '''' }}'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          github-token: '${{ github.token }}'
+          retries: '3'
+          script: |+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: ${{ github.event.pull_request.number }},
-              body: body,
+              body: `**\`Access on Demand\`** - 🟦 request not found.
+            - To require IAM permission on demand, add an **\`iam.yaml\`** file at repo root.
+            - To run tool commands on demand, add an **\`tool.yaml\`** file at repo root.`,
             });
