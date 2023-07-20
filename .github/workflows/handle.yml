@@ -225,7 +225,7 @@ jobs:
 
             <details>
             <summary>Details</summary>
-            Executed "do" commands in below request.
+            Executed "do" commands in the request below.
 
             \`\`\`
             ${req}
@@ -245,7 +245,7 @@ jobs:
 
             <details>
             <summary>Details</summary>
-            Failed to execute "do" commands in below request.
+            Failed to execute "do" commands in the request below.
 
             \`\`\`
             ${req}
@@ -283,7 +283,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: ${{ github.event.pull_request.number }},
-              body: `**\`Access on Demand\`** - 🟨 request not found.
+              body: `**\`Access on Demand\`** - 🟦 request not found.
             - To require IAM permission on demand, add an **\`iam.yaml\`** file at repo root.
             - To run tool commands on demand, add an **\`tool.yaml\`** file at repo root.`,
             });
