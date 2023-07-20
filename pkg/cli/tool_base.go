@@ -37,6 +37,20 @@ type ToolBaseCommand struct {
 	testTool string
 }
 
+func (c *ToolCleanupCommand) Help() string {
+	return `
+Usage: {{ COMMAND }} [options]
+
+Execute commands in tool request YAML file at the given path:
+
+      {{ COMMAND }} -path "/path/to/file.yaml"
+
+Execute commands in tool request YAML file at the given path in debug mode:
+
+      {{ COMMAND }} -path "/path/to/file.yaml" -debug
+`
+}
+
 func (c *ToolBaseCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
 

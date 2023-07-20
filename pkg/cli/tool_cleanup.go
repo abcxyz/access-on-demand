@@ -29,21 +29,7 @@ type ToolCleanupCommand struct {
 }
 
 func (c *ToolCleanupCommand) Desc() string {
-	return `Handle the "cleanup" commands in request YAML file at the given path`
-}
-
-func (c *ToolCleanupCommand) Help() string {
-	return `
-Usage: {{ COMMAND }} [options]
-
-Handle the "cleanup" commands in tool request YAML file at the given path:
-
-      {{ COMMAND }} -path "/path/to/file.yaml"
-
-Handle the "cleanup" commands in tool request YAML file at the given path in debug mode:
-
-      {{ COMMAND }} -path "/path/to/file.yaml" -debug
-`
+	return `Execute the "cleanup" commands in request YAML file at the given path`
 }
 
 func (c *ToolCleanupCommand) Run(ctx context.Context, args []string) error {

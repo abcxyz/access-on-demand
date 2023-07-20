@@ -29,21 +29,7 @@ type ToolDoCommand struct {
 }
 
 func (c *ToolDoCommand) Desc() string {
-	return `Handle the "do" commands in request YAML file at the given path`
-}
-
-func (c *ToolDoCommand) Help() string {
-	return `
-Usage: {{ COMMAND }} [options]
-
-Handle the "do" commands in tool request YAML file at the given path:
-
-      {{ COMMAND }} -path "/path/to/file.yaml"
-
-Handle the "do" commands in tool request YAML file at the given path in debug mode:
-
-      {{ COMMAND }} -path "/path/to/file.yaml" -debug
-`
+	return `Execute the "do" commands in request YAML file at the given path`
 }
 
 func (c *ToolDoCommand) Run(ctx context.Context, args []string) error {
