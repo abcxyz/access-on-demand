@@ -37,7 +37,7 @@ type ToolBaseCommand struct {
 	testTool string
 }
 
-func (c *ToolCleanupCommand) Help() string {
+func (c *ToolBaseCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
