@@ -26,6 +26,7 @@ import (
 
 	"cloud.google.com/go/iam/apiv1/iampb"
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
+	"github.com/abcxyz/pkg/logging"
 	"github.com/googleapis/gax-go/v2"
 	"github.com/sethvargo/go-retry"
 	"google.golang.org/genproto/googleapis/type/expr"
@@ -139,12 +140,11 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 			return fmt.Errorf("failed to get IAM policy: %w", err)
 		}
 
-		// TODO (#44): Continue to handle policy and alert updatePolicy error
-		// differently.
-		// Update the policy with new IAM binding additions.
-		if err := updatePolicy(cp, p.Bindings, expiry); err != nil {
-			return fmt.Errorf("failed to update IAM policy: %w", err)
-		}
+		// updatePolicy also does best effort cleanup which removes any expired AOD
+		// bindings, however any errors encounterred during removal will be ignored
+		// and policy update for the request will continue. Removal errors should be
+		// handled separately such as in a global IAM cleanup.
+		updatePolicy(ctx, cp, p.Bindings, expiry)
 
 		// Set the new policy.
 		setIAMPolicyRequest := &iampb.SetIamPolicyRequest{
@@ -166,7 +166,8 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 }
 
 // Remove expired bindings and add or update new bindings with expiration condition.
-func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) error {
+func updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
+	logger := logging.FromContext(ctx)
 	// Convert new bindings to a role to unique bindings map.
 	bsMap := toBindingsMap(bs)
 	// Clean up current policy bindings.
@@ -181,8 +182,10 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) err
 		// Skip expired bindings.
 		expired, err := expired(cb.Condition.Expression)
 		if err != nil {
-			// Return error immediately since we don't expect this to fail.
-			return fmt.Errorf("failed to check expiry: %w", err)
+			// Continue policy update when there is error checking the AOD expiry.
+			// Cleaning up expired AOD bindings here is best effort.
+			// We rely on a separate process to clean up AOD bindings.
+			logger.Warnw("failed to check expiry", "error", err)
 		}
 		if expired {
 			continue
@@ -226,7 +229,6 @@ func updatePolicy(p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) err
 	// Set policy version to 3 to support conditional IAM bindings.
 	// See details here: https://cloud.google.com/iam/docs/policies#specifying-version-set
 	p.Version = 3
-	return nil
 }
 
 func toBindingsMap(bs []*v1alpha1.Binding) map[string]map[string]struct{} {
