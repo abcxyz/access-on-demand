@@ -183,7 +183,8 @@ func updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, 
 		expired, err := expired(cb.Condition.Expression)
 		if err != nil {
 			// Continue policy update when there is error checking the AOD expiry.
-			// This type of error will be handled in a global cleanup job.
+			// Cleaning up expired AOD bindings here is best effort.
+			// We rely on a separate process to clean up AOD bindings.
 			logger.Warnw("failed to check expiry", "error", err)
 		}
 		if expired {
