@@ -50,6 +50,7 @@ policies:
     role: roles/cloudkms.cryptoOperator
 `,
 		"invalid-yaml.yaml": `bananas`,
+		"empty-file.yaml":   ``,
 	}
 	dir := t.TempDir()
 	for name, content := range requestFileContentByName {
@@ -70,6 +71,11 @@ policies:
 			name:   "success",
 			args:   []string{"-path", filepath.Join(dir, "valid-request.yaml")},
 			expOut: "Successfully validated IAM request",
+		},
+		{
+			name:   "empty_file",
+			args:   []string{"-path", filepath.Join(dir, "empty-file.yaml")},
+			expErr: "failed to validate *v1alpha1.IAMRequest",
 		},
 		{
 			name:   "invalid_yaml",

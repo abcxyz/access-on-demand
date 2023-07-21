@@ -70,6 +70,13 @@ func TestValidateIAMRequest(t *testing.T) {
 			},
 		},
 		{
+			name: "empty_request",
+			request: &IAMRequest{
+				ResourcePolicies: []*ResourcePolicy{},
+			},
+			wantErr: `policies not found`,
+		},
+		{
 			name: "invalid_email",
 			request: &IAMRequest{
 				ResourcePolicies: []*ResourcePolicy{
@@ -222,6 +229,28 @@ func TestValidateToolRequest(t *testing.T) {
 					"run jobs executions delete my-execution2",
 				},
 			},
+		},
+		{
+			name: "success_without_cleanup_commands",
+			request: &ToolRequest{
+				Do: []string{
+					"run jobs execute my-job1",
+					"run jobs execute my-job2",
+				},
+				Cleanup: []string{},
+			},
+		},
+		{
+			name: "missing_do_commands",
+			request: &ToolRequest{
+				Tool: "gcloud",
+				Do:   []string{},
+				Cleanup: []string{
+					"run jobs executions delete my-execution1",
+					"run jobs executions delete my-execution2",
+				},
+			},
+			wantErr: "do commands not found",
 		},
 		{
 			name: "success_with_default_tool",

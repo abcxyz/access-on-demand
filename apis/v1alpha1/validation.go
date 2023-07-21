@@ -33,6 +33,10 @@ var (
 
 // ValidateIAMRequest checks if the IAMRequest is valid.
 func ValidateIAMRequest(r *IAMRequest) (retErr error) {
+	if len(r.ResourcePolicies) == 0 {
+		retErr = fmt.Errorf("policies not found")
+		return
+	}
 	for _, s := range r.ResourcePolicies {
 		// Check if resource type is valid.
 		resourceType := strings.Split(s.Resource, "/")[0]
@@ -79,10 +83,15 @@ func ValidateToolRequest(r *ToolRequest) (retErr error) {
 		retErr = errors.Join(retErr, fmt.Errorf("tool %q is not supported", r.Tool))
 	}
 
-	// Check if the do commands are valid.
-	for _, c := range r.Do {
-		if err := checkCommand(c); err != nil {
-			retErr = errors.Join(retErr, fmt.Errorf("do command %q is not valid: %w", c, err))
+	// Check if it does not have any do commands.
+	if len(r.Do) == 0 {
+		retErr = errors.Join(retErr, fmt.Errorf("do commands not found"))
+	} else {
+		// Check if the do commands are valid.
+		for _, c := range r.Do {
+			if err := checkCommand(c); err != nil {
+				retErr = errors.Join(retErr, fmt.Errorf("do command %q is not valid: %w", c, err))
+			}
 		}
 	}
 

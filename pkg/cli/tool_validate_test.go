@@ -47,7 +47,8 @@ do:
 cleanup:
   - 'cleanup'
 `,
-		"invalid.yaml": `bananas`,
+		"invalid.yaml":    `bananas`,
+		"empty-file.yaml": ``,
 	}
 	dir := t.TempDir()
 	for name, content := range requestFileContentByName {
@@ -67,6 +68,11 @@ cleanup:
 			name:   "success",
 			args:   []string{"-path", filepath.Join(dir, "valid.yaml")},
 			expOut: `Successfully validated tool request`,
+		},
+		{
+			name:   "empty_file",
+			args:   []string{"-path", filepath.Join(dir, "empty-file.yaml")},
+			expErr: `failed to validate *v1alpha1.ToolRequest`,
 		},
 		{
 			name:   "unexpected_args",
