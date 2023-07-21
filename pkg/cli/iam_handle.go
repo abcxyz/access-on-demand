@@ -64,7 +64,7 @@ Handle the IAM request YAML file in the given path:
 }
 
 func (c *IAMHandleCommand) Flags() *cli.FlagSet {
-	set := cli.NewFlagSet()
+	set := c.NewFlagSet()
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")
