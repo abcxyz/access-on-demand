@@ -25,6 +25,12 @@ import (
 	"github.com/posener/complete/v2/predict"
 )
 
+// toolHandler interface that handles ToolRequest.
+type toolHandler interface {
+	Do(context.Context, *v1alpha1.ToolRequest) error
+	Cleanup(context.Context, *v1alpha1.ToolRequest) error
+}
+
 // ToolBaseCommand is the base command for handling tool requests.
 type ToolBaseCommand struct {
 	cli.BaseCommand
@@ -33,8 +39,8 @@ type ToolBaseCommand struct {
 
 	flagDebug bool
 
-	// testTool is used for testing only.
-	testTool string
+	// testHandler is used for testing only.
+	testHandler toolHandler
 }
 
 func (c *ToolBaseCommand) Help() string {
@@ -75,7 +81,7 @@ func (c *ToolBaseCommand) Flags() *cli.FlagSet {
 	return set
 }
 
-func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.ToolRequest, *handler.ToolHandler, error) {
+func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.ToolRequest, toolHandler, error) {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return nil, nil, fmt.Errorf("failed to parse flags: %w", err)
@@ -99,15 +105,16 @@ func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.T
 		return nil, nil, fmt.Errorf("failed to validate %T: %w", &req, err)
 	}
 
-	opts := []handler.ToolHandlerOption{handler.WithStderr(c.Stderr())}
-	if c.flagDebug {
-		opts = append(opts, handler.WithDebugMode(c.Stdout()))
-	}
-	h := handler.NewToolHandler(ctx, opts...)
-
-	// Use testTool if it is for testing.
-	if c.testTool != "" {
-		req.Tool = c.testTool
+	var h toolHandler
+	// Use testhandler if it is for testing.
+	if c.testHandler != nil {
+		h = c.testHandler
+	} else {
+		opts := []handler.ToolHandlerOption{handler.WithStderr(c.Stderr())}
+		if c.flagDebug {
+			opts = append(opts, handler.WithDebugMode(c.Stdout()))
+		}
+		h = handler.NewToolHandler(ctx, opts...)
 	}
 
 	return &req, h, nil

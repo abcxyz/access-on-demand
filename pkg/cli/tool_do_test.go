@@ -16,11 +16,13 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
@@ -49,6 +51,15 @@ cleanup:
 `,
 		"invalid.yaml": `bananas`,
 	}
+
+	validReq := &v1alpha1.ToolRequest{
+		Tool:    "gcloud",
+		Do:      []string{"do1", "do2"},
+		Cleanup: []string{"cleanup1", "cleanup2"},
+	}
+
+	injectErr := fmt.Errorf("injected error")
+
 	dir := t.TempDir()
 	for name, content := range requestFileContentByName {
 		path := filepath.Join(dir, name)
@@ -58,54 +69,50 @@ cleanup:
 	}
 
 	cases := []struct {
-		name      string
-		args      []string
-		testTool  string
-		expOut    string
-		expErr    string
-		expStdErr string
+		name        string
+		args        []string
+		testHandler *fakeToolHandler
+		expOut      string
+		expErr      string
+		expReq      *v1alpha1.ToolRequest
 	}{
 		{
-			name:     "success_do",
-			args:     []string{"-path", filepath.Join(dir, "valid.yaml")},
-			testTool: "echo",
-			expOut:   `Successfully completed commands`,
+			name:        "success_do",
+			args:        []string{"-path", filepath.Join(dir, "valid.yaml")},
+			testHandler: &fakeToolHandler{},
+			expOut:      `Successfully completed commands`,
+			expReq:      validReq,
 		},
 		{
-			name:     "success_do_with_debug",
-			args:     []string{"-path", filepath.Join(dir, "valid.yaml"), "-debug"},
-			testTool: "echo",
-			expOut: `
-do1
-do2
-Successfully completed commands`,
+			name:        "unexpected_args",
+			args:        []string{"foo"},
+			testHandler: &fakeToolHandler{},
+			expErr:      `unexpected arguments: ["foo"]`,
 		},
 		{
-			name:   "unexpected_args",
-			args:   []string{"foo"},
-			expErr: `unexpected arguments: ["foo"]`,
+			name:        "missing_path",
+			args:        []string{},
+			testHandler: &fakeToolHandler{},
+			expErr:      `path is required`,
 		},
 		{
-			name:   "missing_path",
-			args:   []string{},
-			expErr: `path is required`,
+			name:        "invalid_yaml",
+			args:        []string{"-path", filepath.Join(dir, "invalid.yaml")},
+			testHandler: &fakeToolHandler{},
+			expErr:      "failed to read *v1alpha1.ToolRequest",
 		},
 		{
-			name:   "invalid_yaml",
-			args:   []string{"-path", filepath.Join(dir, "invalid.yaml")},
-			expErr: "failed to read *v1alpha1.ToolRequest",
+			name:        "handler_do_failure",
+			args:        []string{"-path", filepath.Join(dir, "valid.yaml")},
+			testHandler: &fakeToolHandler{injectErr: injectErr},
+			expErr:      injectErr.Error(),
+			expReq:      validReq,
 		},
 		{
-			name:      "handler_do_failure",
-			args:      []string{"-path", filepath.Join(dir, "valid.yaml")},
-			testTool:  "ls",
-			expErr:    `failed to run command "do1"`,
-			expStdErr: "ls: cannot access 'do1': No such file or directory",
-		},
-		{
-			name:   "invalid_request",
-			args:   []string{"-path", filepath.Join(dir, "invalid-request.yaml")},
-			expErr: "failed to validate *v1alpha1.ToolRequest",
+			name:        "invalid_request",
+			args:        []string{"-path", filepath.Join(dir, "invalid-request.yaml")},
+			testHandler: &fakeToolHandler{},
+			expErr:      "failed to validate *v1alpha1.ToolRequest",
 		},
 	}
 
@@ -119,10 +126,10 @@ Successfully completed commands`,
 
 			cmd := ToolDoCommand{
 				ToolBaseCommand: ToolBaseCommand{
-					testTool: tc.testTool,
+					testHandler: tc.testHandler,
 				},
 			}
-			_, stdout, stderr := cmd.Pipe()
+			_, stdout, _ := cmd.Pipe()
 
 			args := append([]string{}, tc.args...)
 
@@ -133,9 +140,24 @@ Successfully completed commands`,
 			if diff := cmp.Diff(strings.TrimSpace(tc.expOut), strings.TrimSpace(stdout.String())); diff != "" {
 				t.Errorf("Process(%+v) got output diff (-want, +got):\n%s", tc.name, diff)
 			}
-			if diff := cmp.Diff(strings.TrimSpace(tc.expStdErr), strings.TrimSpace(stderr.String())); diff != "" {
-				t.Errorf("Process(%+v) got command error diff (-want, +got):\n%s", tc.name, diff)
+			if diff := cmp.Diff(tc.expReq, tc.testHandler.gotReq); diff != "" {
+				t.Errorf("Process(%+v) got request diff (-want, +got):\n%s", tc.name, diff)
 			}
 		})
 	}
+}
+
+type fakeToolHandler struct {
+	injectErr error
+	gotReq    *v1alpha1.ToolRequest
+}
+
+func (h *fakeToolHandler) Do(ctx context.Context, req *v1alpha1.ToolRequest) error {
+	h.gotReq = req
+	return h.injectErr
+}
+
+func (h *fakeToolHandler) Cleanup(ctx context.Context, req *v1alpha1.ToolRequest) error {
+	h.gotReq = req
+	return h.injectErr
 }
