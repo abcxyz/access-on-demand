@@ -25,42 +25,39 @@ import (
 	"github.com/posener/complete/v2/predict"
 )
 
-var _ cli.Command = (*ToolHandleCommand)(nil)
+// toolHandler interface that handles ToolRequest.
+type toolHandler interface {
+	Do(context.Context, *v1alpha1.ToolRequest) error
+	Cleanup(context.Context, *v1alpha1.ToolRequest) error
+}
 
-// ToolHandleCommand handles tool requests.
-type ToolHandleCommand struct {
+// ToolBaseCommand is the base command for handling tool requests.
+type ToolBaseCommand struct {
 	cli.BaseCommand
 
 	flagPath string
 
 	flagDebug bool
 
-	// Run Cleanup instead of Do if true.
-	Cleanup bool
-
-	// testTool is used for testing only.
-	testTool string
+	// testHandler is used for testing only.
+	testHandler toolHandler
 }
 
-func (c *ToolHandleCommand) Desc() string {
-	return `Handle the tool request YAML file at the given path`
-}
-
-func (c *ToolHandleCommand) Help() string {
+func (c *ToolBaseCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
-Handle tool request YAML file at the given path:
+Execute commands in tool request YAML file at the given path:
 
       {{ COMMAND }} -path "/path/to/file.yaml"
 
-Handle tool request YAML file at the given path in debug mode:
+Execute commands in tool request YAML file at the given path in debug mode:
 
       {{ COMMAND }} -path "/path/to/file.yaml" -debug
 `
 }
 
-func (c *ToolHandleCommand) Flags() *cli.FlagSet {
+func (c *ToolBaseCommand) Flags() *cli.FlagSet {
 	set := cli.NewFlagSet()
 
 	// Command options
@@ -84,54 +81,41 @@ func (c *ToolHandleCommand) Flags() *cli.FlagSet {
 	return set
 }
 
-func (c *ToolHandleCommand) Run(ctx context.Context, args []string) error {
+func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.ToolRequest, toolHandler, error) {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
-		return fmt.Errorf("failed to parse flags: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse flags: %w", err)
 	}
 	args = f.Args()
 	if len(args) > 0 {
-		return fmt.Errorf("unexpected arguments: %q", args)
+		return nil, nil, fmt.Errorf("unexpected arguments: %q", args)
 	}
 
 	if c.flagPath == "" {
-		return fmt.Errorf("path is required")
+		return nil, nil, fmt.Errorf("path is required")
 	}
 
-	return c.handle(ctx)
-}
-
-func (c *ToolHandleCommand) handle(ctx context.Context) error {
 	// Read request from file path.
 	var req v1alpha1.ToolRequest
 	if err := requestutil.ReadRequestFromPath(c.flagPath, &req); err != nil {
-		return fmt.Errorf("failed to read %T: %w", &req, err)
+		return nil, nil, fmt.Errorf("failed to read %T: %w", &req, err)
 	}
 
 	if err := v1alpha1.ValidateToolRequest(&req); err != nil {
-		return fmt.Errorf("failed to validate %T: %w", &req, err)
+		return nil, nil, fmt.Errorf("failed to validate %T: %w", &req, err)
 	}
 
-	opts := []handler.ToolHandlerOption{handler.WithStderr(c.Stderr())}
-	if c.flagDebug {
-		opts = append(opts, handler.WithDebugMode(c.Stdout()))
-	}
-	h := handler.NewToolHandler(ctx, opts...)
-
-	// Use testTool if it is for testing.
-	if c.testTool != "" {
-		req.Tool = c.testTool
-	}
-	var err error
-	if c.Cleanup {
-		err = h.Cleanup(ctx, &req)
+	var h toolHandler
+	// Use testhandler if it is for testing.
+	if c.testHandler != nil {
+		h = c.testHandler
 	} else {
-		err = h.Do(ctx, &req)
+		opts := []handler.ToolHandlerOption{handler.WithStderr(c.Stderr())}
+		if c.flagDebug {
+			opts = append(opts, handler.WithDebugMode(c.Stdout()))
+		}
+		h = handler.NewToolHandler(ctx, opts...)
 	}
-	if err != nil {
-		return fmt.Errorf(`failed to run commands: %w`, err)
-	}
-	c.Outf(`Successfully completed commands`)
 
-	return nil
+	return &req, h, nil
 }
