@@ -244,7 +244,7 @@ func TestValidateToolRequest(t *testing.T) {
 			name: "missing_do_commands",
 			request: &ToolRequest{
 				Tool: "gcloud",
-				Do: []string{},
+				Do:   []string{},
 				Cleanup: []string{
 					"run jobs executions delete my-execution1",
 					"run jobs executions delete my-execution2",

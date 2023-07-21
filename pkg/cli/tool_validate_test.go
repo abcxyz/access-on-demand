@@ -47,7 +47,7 @@ do:
 cleanup:
   - 'cleanup'
 `,
-		"invalid.yaml": `bananas`,
+		"invalid.yaml":    `bananas`,
 		"empty-file.yaml": ``,
 	}
 	dir := t.TempDir()

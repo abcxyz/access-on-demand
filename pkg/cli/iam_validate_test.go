@@ -50,7 +50,7 @@ policies:
     role: roles/cloudkms.cryptoOperator
 `,
 		"invalid-yaml.yaml": `bananas`,
-		"empty-file.yaml": ``,
+		"empty-file.yaml":   ``,
 	}
 	dir := t.TempDir()
 	for name, content := range requestFileContentByName {

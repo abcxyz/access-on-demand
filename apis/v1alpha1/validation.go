@@ -33,7 +33,7 @@ var (
 
 // ValidateIAMRequest checks if the IAMRequest is valid.
 func ValidateIAMRequest(r *IAMRequest) (retErr error) {
-	if (len(r.ResourcePolicies) == 0) {
+	if len(r.ResourcePolicies) == 0 {
 		retErr = fmt.Errorf("policies not found")
 		return
 	}
