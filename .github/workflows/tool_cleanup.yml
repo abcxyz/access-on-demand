@@ -15,10 +15,6 @@
 # Reusable workflow that handles tool request cleanup.
 name: 'aod-tool-cleanup'
 
-# Support below trigger:
-# pull_request:
-#   types: 'closed'
-#   paths: 'tool.yaml'
 on:
   workflow_call:
     inputs:
@@ -92,6 +88,7 @@ jobs:
         run: |
           touch ${{ env.TOOL_ERROR_FILENAME }}
           aod tool cleanup -path ${{ env.FILE_PATH }} 2> ${{ env.TOOL_ERROR_FILENAME }}
+      # TODO (#79): Output only executed commands.
       - name: 'Tool Request Cleanup Comment'
         if: '${{ always() }}'
         uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
