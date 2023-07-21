@@ -58,7 +58,7 @@ Execute commands in tool request YAML file at the given path in debug mode:
 }
 
 func (c *ToolBaseCommand) Flags() *cli.FlagSet {
-	set := cli.NewFlagSet()
+	set := c.NewFlagSet()
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")

@@ -48,7 +48,7 @@ Validate the tool request YAML file at the given path:
 }
 
 func (c *ToolValidateCommand) Flags() *cli.FlagSet {
-	set := cli.NewFlagSet()
+	set := c.NewFlagSet()
 
 	// Command options
 	f := set.NewSection("COMMAND OPTIONS")
