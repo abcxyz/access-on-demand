@@ -86,6 +86,14 @@ jobs:
                   pull_number: pull['number'],
                   state: 'closed',
                 });
+
+                // Comment on closed PRs.
+                await github.rest.issues.createComment({
+                  owner: repoOwner,
+                  repo: repoName,
+                  issue_number: pull['number'],
+                  body: `**\`Access on Demand\`** - request closed due to inactivity for at least ${{ inputs.expiry_hours }} hours`,
+                });
               } else {
                 core.info(`Skipping #${pull['number']} (${pull['title']}) - not an AOD request`);
               }

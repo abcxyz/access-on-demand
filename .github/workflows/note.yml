@@ -22,6 +22,11 @@ on:
         description: 'The number of hours an AOD PR should be expired since last updated.'
         type: 'number'
         required: true
+      aod_instruction_link:
+        description: 'The link to your AOD instructions. Default is the repo root.'
+        type: 'string'
+        required: false
+        default: '${{ github.server_url }}/${{ github.repository }}'
 
 env:
   AOD_NOTE: >
@@ -29,7 +34,7 @@ env:
     The request will be automatically applied once the code owners approve it.
     Please close the PR once you are finished or it will automatically be closed
     after ~${{ inputs.expiry_hours }} hours of it's last update. For more
-    instructions, please see [here](https://github.com/abcxyz/aod-template/blob/main/README.md).
+    instructions, please see [here](${{ inputs.aod_instruction_link }}).
 
 jobs:
   note:
