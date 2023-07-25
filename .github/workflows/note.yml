@@ -23,9 +23,10 @@ on:
         type: 'number'
         required: true
       aod_instruction_link:
-        description: 'The link to your AOD instructions.'
+        description: 'The link to your AOD instructions. Default is the repo root.'
         type: 'string'
-        required: true
+        required: false
+        default: '${{ github.server_url }}/${{ github.repository }}'
 
 env:
   AOD_NOTE: >
