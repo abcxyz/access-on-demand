@@ -39,6 +39,7 @@ on:
 
 env:
   TOOL_ERROR_FILENAME: '/tmp/tool_error.txt'
+  TOOL_OUT_FILENAME: '/tmp/tool_output.txt'
 
 jobs:
   # Check the current status of this pull request with respect to code review.
@@ -93,6 +94,9 @@ jobs:
           workload_identity_provider: '${{ inputs.workload_identity_provider }}'
           service_account: '${{ inputs.service_account }}'
           token_format: 'access_token'
+      # Install gcloud, `setup-gcloud` automatically picks up authentication from `auth`.
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b' # ratchet:google-github-actions/setup-gcloud@v1
       - name: 'Install AOD CLI'
         run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
       - name: 'Handle cleanup'
@@ -100,8 +104,10 @@ jobs:
         env:
           FILE_PATH: '${{ github.workspace }}/tool.yaml'
         run: |
-          touch ${{ env.TOOL_ERROR_FILENAME }}
-          aod tool cleanup -path ${{ env.FILE_PATH }} 2> ${{ env.TOOL_ERROR_FILENAME }}
+          touch ${{ env.TOOL_ERROR_FILENAME }} ${{ env.TOOL_OUT_FILENAME }}
+          aod tool cleanup -path ${{ env.FILE_PATH }} \
+          2> ${{ env.TOOL_ERROR_FILENAME }} \
+          > ${{ env.TOOL_OUT_FILENAME }}
       # TODO (#79): Output only executed commands.
       - name: 'Tool Request Cleanup Comment'
         if: '${{ always() }}'
@@ -116,7 +122,7 @@ jobs:
             switch (outcome) {
               case 'success':
                 req = fs.readFileSync(
-                  `tool.yaml`,
+                  `${{ env.TOOL_OUT_FILENAME }}`,
                   { encoding: "utf8" }
                 );
 
@@ -133,7 +139,7 @@ jobs:
                 break;
               case 'failure':
                 req = fs.readFileSync(
-                  `tool.yaml`,
+                  `${{ env.TOOL_OUT_FILENAME }}`,
                   { encoding: "utf8" }
                 );
                 const error = fs.readFileSync(

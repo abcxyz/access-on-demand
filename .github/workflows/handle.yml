@@ -13,9 +13,9 @@
 # limitations under the License.
 
 name: 'aod-handle'
-# TODO(#30): Support pull_request labeled triggering event. Current workflow
-# requires the triggering event must be pull_request_review as it relies on this
-# event to get the approval submit time as IAM permission expiration start time.
+# Current workflow requires the triggering event must be pull_request_review as
+# it relies on this event to get the approval submit time as IAM permission
+# expiration start time.
 on:
   workflow_call:
     inputs:
@@ -41,7 +41,9 @@ on:
 env:
   DEFAULT_DURATION: '2h'
   IAM_ERROR_FILENAME: '/tmp/iam_error.txt'
+  IAM_OUT_FILENAME: '/tmp/iam_output.txt'
   TOOL_ERROR_FILENAME: '/tmp/tool_error.txt'
+  TOOL_OUT_FILENAME: '/tmp/tool_output.txt'
 
 jobs:
   review_status:
@@ -99,6 +101,10 @@ jobs:
           workload_identity_provider: '${{ inputs.workload_identity_provider }}'
           service_account: '${{ inputs.service_account }}'
           token_format: 'access_token'
+      # Install gcloud, `setup-gcloud` automatically picks up authentication from `auth`.
+      - name: 'Set up Cloud SDK'
+        if: '${{ hashFiles(''tool.yaml'') != '''' }}'
+        uses: 'google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b' # ratchet:google-github-actions/setup-gcloud@v1
       - name: 'Install AOD CLI'
         if: '${{ hashFiles(''iam.yaml'', ''tool.yaml'') != '''' }}'
         run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
@@ -123,8 +129,13 @@ jobs:
           IAM_FILE_PATH: '${{ github.workspace }}/iam.yaml'
           START_TIME: '${{ github.event.review.submitted_at }}'
         run: |
-          touch ${{ env.IAM_ERROR_FILENAME }}
-          aod iam handle -path ${{ env.IAM_FILE_PATH }} -duration ${{ env.DURATION }} -start-time ${{ env.START_TIME }} 2> ${{ env.IAM_ERROR_FILENAME }}
+          touch ${{ env.IAM_ERROR_FILENAME }} ${{ env.IAM_OUT_FILENAME }}
+          aod iam handle \
+          -path ${{ env.IAM_FILE_PATH }} \
+          -duration ${{ env.DURATION }} \
+          -start-time ${{ env.START_TIME }} \
+          2> ${{ env.IAM_ERROR_FILENAME }} \
+          > ${{ env.IAM_OUT_FILENAME }}
       # Request will not be handled when tool.yaml file does not exist in the
       # case of a pull_request_review event, instead it prints out a notice.
       - name: 'Handle Tool Request'
@@ -133,8 +144,10 @@ jobs:
         env:
           TOOL_FILE_PATH: '${{ github.workspace }}/tool.yaml'
         run: |
-          touch ${{ env.TOOL_ERROR_FILENAME }}
-          aod tool do -path ${{ env.TOOL_FILE_PATH }} 2> ${{ env.TOOL_ERROR_FILENAME }}
+          touch ${{ env.TOOL_ERROR_FILENAME }} ${{ env.TOOL_OUT_FILENAME }}
+          aod tool do -path ${{ env.TOOL_FILE_PATH }} \
+          2> ${{ env.TOOL_ERROR_FILENAME }} \
+          > ${{ env.TOOL_OUT_FILENAME }}
 
       - name: 'IAM Request Comment'
         if: '${{ always() && hashFiles(''iam.yaml'') != '''' }}'
@@ -149,7 +162,7 @@ jobs:
             switch (outcome) {
               case 'success':
                 req = fs.readFileSync(
-                  `iam.yaml`,
+                  `${{ env.IAM_OUT_FILENAME }}`,
                   { encoding: "utf8" }
                 );
 
@@ -166,7 +179,7 @@ jobs:
                 break;
               case 'failure':
                 req = fs.readFileSync(
-                  `iam.yaml`,
+                  `${{ env.IAM_OUT_FILENAME }}`,
                   { encoding: "utf8" }
                 );
                 const error = fs.readFileSync(
@@ -217,7 +230,7 @@ jobs:
             switch (outcome) {
               case 'success':
                 req = fs.readFileSync(
-                  `tool.yaml`,
+                  `${{ env.TOOL_OUT_FILENAME }}`,
                   { encoding: "utf8" }
                 );
 
@@ -234,7 +247,7 @@ jobs:
                 break;
               case 'failure':
                 req = fs.readFileSync(
-                  `tool.yaml`,
+                  `${{ env.TOOL_OUT_FILENAME }}`,
                   { encoding: "utf8" }
                 );
                 const error = fs.readFileSync(
