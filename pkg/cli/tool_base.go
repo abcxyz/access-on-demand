@@ -23,6 +23,7 @@ import (
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/posener/complete/v2/predict"
+	"gopkg.in/yaml.v3"
 )
 
 // toolHandler interface that handles ToolRequest.
@@ -39,6 +40,8 @@ type ToolBaseCommand struct {
 
 	flagDebug bool
 
+	flagVerbose bool
+
 	// testHandler is used for testing only.
 	testHandler toolHandler
 }
@@ -54,6 +57,10 @@ Execute commands in tool request YAML file at the given path:
 Execute commands in tool request YAML file at the given path in debug mode:
 
       {{ COMMAND }} -path "/path/to/file.yaml" -debug
+
+Execute commands in tool request YAML file and output commands executed:
+
+      {{ COMMAND }} -path "/path/to/file.yaml" -verbose
 `
 }
 
@@ -76,6 +83,13 @@ func (c *ToolBaseCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagDebug,
 		Default: false,
 		Usage:   `Turn on debug mode to print command outputs.`,
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "verbose",
+		Target:  &c.flagVerbose,
+		Default: false,
+		Usage:   `Turn on verbose mode to print commands executed.`,
 	})
 
 	return set
@@ -118,4 +132,25 @@ func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.T
 	}
 
 	return &req, h, nil
+}
+
+func (c *ToolBaseCommand) output(subcmds []string, tool string) error {
+	if c.flagVerbose {
+		var cmds []string
+		for _, sub := range subcmds {
+			cmds = append(cmds, fmt.Sprintf("%s %s", tool, sub))
+		}
+		enc := yaml.NewEncoder(c.Stdout())
+		enc.SetIndent(2)
+		if err := enc.Encode(cmds); err != nil {
+			return fmt.Errorf("failed to encode to yaml: %w", err)
+		}
+
+		if err := enc.Close(); err != nil {
+			return fmt.Errorf("failed to close yaml encoder: %w", err)
+		}
+	} else {
+		c.Outf(`Successfully completed commands`)
+	}
+	return nil
 }

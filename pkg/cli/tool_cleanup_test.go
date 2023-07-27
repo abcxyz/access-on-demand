@@ -84,6 +84,13 @@ cleanup:
 			expReq:      validReq,
 		},
 		{
+			name:        "success_verbose",
+			args:        []string{"-path", filepath.Join(dir, "valid.yaml"), "-verbose"},
+			testHandler: &fakeToolHandler{},
+			expOut:      "- gcloud cleanup1\n- gcloud cleanup2",
+			expReq:      validReq,
+		},
+		{
 			name:        "unexpected_args",
 			args:        []string{"foo"},
 			testHandler: &fakeToolHandler{},

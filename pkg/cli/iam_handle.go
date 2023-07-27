@@ -24,6 +24,7 @@ import (
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/posener/complete/v2/predict"
+	"gopkg.in/yaml.v3"
 
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
@@ -45,6 +46,8 @@ type IAMHandleCommand struct {
 
 	flagStartTime time.Time
 
+	flagVerbose bool
+
 	// testHandler is used for testing only.
 	testHandler iamHandler
 }
@@ -60,6 +63,10 @@ Usage: {{ COMMAND }} [options]
 Handle the IAM request YAML file in the given path:
 
       {{ COMMAND }} -path "/path/to/file.yaml" -duration "2h" -start-time "2009-11-10T23:00:00Z"
+
+Handle the IAM request YAML file and output applied IAM changes:
+
+      {{ COMMAND }} -path "/path/to/file.yaml" -duration "2h" -start-time "2009-11-10T23:00:00Z" -verbose
 `
 }
 
@@ -91,6 +98,13 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 		Default: time.Now().UTC(),
 		Usage: `The start time of the IAM permission lifecycle in RFC3339 format. ` +
 			`Default is current UTC time.`,
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "verbose",
+		Target:  &c.flagVerbose,
+		Default: false,
+		Usage:   `Turn on verbose mode to output applied IAM changes.`,
 	})
 
 	return set
@@ -178,7 +192,20 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 	if _, err := h.Do(ctx, reqWrapper); err != nil {
 		return fmt.Errorf("failed to handle IAM request: %w", err)
 	}
-	c.Outf("Successfully handled IAM request")
+
+	if c.flagVerbose {
+		enc := yaml.NewEncoder(c.Stdout())
+		enc.SetIndent(2)
+		if err := enc.Encode(reqWrapper); err != nil {
+			return fmt.Errorf("failed to encode to yaml: %w", err)
+		}
+
+		if err := enc.Close(); err != nil {
+			return fmt.Errorf("failed to close yaml encoder: %w", err)
+		}
+	} else {
+		c.Outf("Successfully handled IAM request")
+	}
 
 	return nil
 }

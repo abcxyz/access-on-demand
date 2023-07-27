@@ -145,6 +145,41 @@ policies:
 			},
 		},
 		{
+			name:    "success_verbose",
+			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h", "-start-time", st.Format(time.RFC3339), "-verbose"},
+			handler: &fakeIAMHandler{},
+			expOut: fmt.Sprintf(`
+iamrequest:
+  policies:
+    - resource: organizations/foo
+      bindings:
+        - members:
+            - user:test-org-userA@example.com
+            - user:test-org-userB@example.com
+          role: roles/cloudkms.cryptoOperator
+        - members:
+            - user:test-org-userA@example.com
+            - user:test-org-userB@example.com
+          role: roles/accessapproval.approver
+    - resource: folders/bar
+      bindings:
+        - members:
+            - user:test-folder-user@example.com
+          role: roles/cloudkms.cryptoOperator
+    - resource: projects/baz
+      bindings:
+        - members:
+            - user:test-project-user@example.com
+          role: roles/bigquery.dataViewer
+duration: 2h0m0s
+starttime: %s`, st.Format(time.RFC3339)),
+			expReq: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: validRequest,
+				Duration:   2 * time.Hour,
+				StartTime:  st,
+			},
+		},
+		{
 			name:    "unexpected_args",
 			args:    []string{"foo"},
 			handler: &fakeIAMHandler{},
