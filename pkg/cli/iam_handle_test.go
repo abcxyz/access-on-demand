@@ -149,6 +149,8 @@ policies:
 			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h", "-start-time", st.Format(time.RFC3339), "-verbose"},
 			handler: &fakeIAMHandler{},
 			expOut: fmt.Sprintf(`
+Successfully handled IAM request
+------------
 iamrequest:
   policies:
     - resource: organizations/foo

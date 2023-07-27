@@ -24,7 +24,6 @@ import (
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/posener/complete/v2/predict"
-	"gopkg.in/yaml.v3"
 
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
@@ -193,18 +192,12 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 		return fmt.Errorf("failed to handle IAM request: %w", err)
 	}
 
+	c.Outf("Successfully handled IAM request")
 	if c.flagVerbose {
-		enc := yaml.NewEncoder(c.Stdout())
-		enc.SetIndent(2)
-		if err := enc.Encode(reqWrapper); err != nil {
-			return fmt.Errorf("failed to encode to yaml: %w", err)
+		c.Outf("------------")
+		if err := encodeYaml(c.Stdout(), reqWrapper); err != nil {
+			return fmt.Errorf("failed to output applied request: %w", err)
 		}
-
-		if err := enc.Close(); err != nil {
-			return fmt.Errorf("failed to close yaml encoder: %w", err)
-		}
-	} else {
-		c.Outf("Successfully handled IAM request")
 	}
 
 	return nil

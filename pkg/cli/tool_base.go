@@ -23,7 +23,6 @@ import (
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/posener/complete/v2/predict"
-	"gopkg.in/yaml.v3"
 )
 
 // toolHandler interface that handles ToolRequest.
@@ -135,22 +134,16 @@ func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.T
 }
 
 func (c *ToolBaseCommand) output(subcmds []string, tool string) error {
+	c.Outf(`Successfully completed commands`)
 	if c.flagVerbose {
+		c.Outf("------------")
 		var cmds []string
 		for _, sub := range subcmds {
 			cmds = append(cmds, fmt.Sprintf("%s %s", tool, sub))
 		}
-		enc := yaml.NewEncoder(c.Stdout())
-		enc.SetIndent(2)
-		if err := enc.Encode(cmds); err != nil {
-			return fmt.Errorf("failed to encode to yaml: %w", err)
+		if err := encodeYaml(c.Stdout(), cmds); err != nil {
+			return fmt.Errorf("failed to output executed commands: %w", err)
 		}
-
-		if err := enc.Close(); err != nil {
-			return fmt.Errorf("failed to close yaml encoder: %w", err)
-		}
-	} else {
-		c.Outf(`Successfully completed commands`)
 	}
 	return nil
 }
