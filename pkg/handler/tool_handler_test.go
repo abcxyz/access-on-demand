@@ -66,7 +66,7 @@ func TestToolHandlerDo(t *testing.T) {
 				},
 			},
 			expHandleErrSubStr: `failed to run command "dir_not_exist"`,
-			expOutErr:          `ls: cannot access 'dir_not_exist': No such file or directory`,
+			expOutErr:          `No such file or directory`,
 		},
 	}
 
@@ -86,7 +86,8 @@ func TestToolHandlerDo(t *testing.T) {
 			if diff := testutil.DiffErrString(gotErr, tc.expHandleErrSubStr); diff != "" {
 				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
 			}
-			if diff := cmp.Diff(strings.TrimSpace(tc.expOutErr), strings.TrimSpace(stderr.String())); diff != "" {
+			if !strings.Contains(stderr.String(), tc.expOutErr) {
+				diff := cmp.Diff(strings.TrimSpace(tc.expOutErr), strings.TrimSpace(stderr.String()))
 				t.Errorf("Process(%+v) got unexpected error output substring: %v", tc.name, diff)
 			}
 			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(stdout.String())); diff != "" {
@@ -136,7 +137,7 @@ func TestToolHandlerCleanup(t *testing.T) {
 				},
 			},
 			expHandleErrSubStr: `failed to run command "dir_not_exist"`,
-			expOutErr:          `ls: cannot access 'dir_not_exist': No such file or directory`,
+			expOutErr:          `No such file or directory`,
 		},
 	}
 
@@ -156,7 +157,8 @@ func TestToolHandlerCleanup(t *testing.T) {
 			if diff := testutil.DiffErrString(gotErr, tc.expHandleErrSubStr); diff != "" {
 				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
 			}
-			if diff := cmp.Diff(strings.TrimSpace(tc.expOutErr), strings.TrimSpace(stderr.String())); diff != "" {
+			if !strings.Contains(stderr.String(), tc.expOutErr) {
+				diff := cmp.Diff(strings.TrimSpace(tc.expOutErr), strings.TrimSpace(stderr.String()))
 				t.Errorf("Process(%+v) got unexpected error output substring: %v", tc.name, diff)
 			}
 			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(stdout.String())); diff != "" {

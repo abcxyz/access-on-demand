@@ -54,6 +54,10 @@ Execute commands in tool request YAML file at the given path:
 Execute commands in tool request YAML file at the given path in debug mode:
 
       {{ COMMAND }} -path "/path/to/file.yaml" -debug
+
+Execute commands in tool request YAML file and output commands executed:
+
+      {{ COMMAND }} -path "/path/to/file.yaml" -verbose
 `
 }
 
@@ -118,4 +122,16 @@ func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.T
 	}
 
 	return &req, h, nil
+}
+
+func (c *ToolBaseCommand) output(subcmds []string, tool string) error {
+	c.Outf("Successfully completed commands\n------------")
+	cmds := make([]string, 0, len(subcmds))
+	for _, sub := range subcmds {
+		cmds = append(cmds, fmt.Sprintf("%s %s", tool, sub))
+	}
+	if err := encodeYaml(c.Stdout(), cmds); err != nil {
+		return fmt.Errorf("failed to output executed commands: %w", err)
+	}
+	return nil
 }

@@ -60,6 +60,10 @@ Usage: {{ COMMAND }} [options]
 Handle the IAM request YAML file in the given path:
 
       {{ COMMAND }} -path "/path/to/file.yaml" -duration "2h" -start-time "2009-11-10T23:00:00Z"
+
+Handle the IAM request YAML file and output applied IAM changes:
+
+      {{ COMMAND }} -path "/path/to/file.yaml" -duration "2h" -start-time "2009-11-10T23:00:00Z" -verbose
 `
 }
 
@@ -178,7 +182,11 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 	if _, err := h.Do(ctx, reqWrapper); err != nil {
 		return fmt.Errorf("failed to handle IAM request: %w", err)
 	}
-	c.Outf("Successfully handled IAM request")
+
+	c.Outf("Successfully handled IAM request\n------------")
+	if err := encodeYaml(c.Stdout(), reqWrapper); err != nil {
+		return fmt.Errorf("failed to output applied request: %w", err)
+	}
 
 	return nil
 }

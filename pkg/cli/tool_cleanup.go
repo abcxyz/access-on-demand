@@ -41,7 +41,10 @@ func (c *ToolCleanupCommand) Run(ctx context.Context, args []string) error {
 	if err := h.Cleanup(ctx, req); err != nil {
 		return fmt.Errorf(`failed to run "cleanup" commands: %w`, err)
 	}
-	c.Outf(`Successfully completed commands`)
+
+	if err := c.output(req.Cleanup, req.Tool); err != nil {
+		return fmt.Errorf("failed to print outputs: %w", err)
+	}
 
 	return nil
 }

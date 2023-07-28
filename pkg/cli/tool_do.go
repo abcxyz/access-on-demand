@@ -41,7 +41,10 @@ func (c *ToolDoCommand) Run(ctx context.Context, args []string) error {
 	if err := h.Do(ctx, req); err != nil {
 		return fmt.Errorf(`failed to run "do" commands: %w`, err)
 	}
-	c.Outf(`Successfully completed commands`)
+
+	if err := c.output(req.Do, req.Tool); err != nil {
+		return fmt.Errorf("failed to print outputs: %w", err)
+	}
 
 	return nil
 }
