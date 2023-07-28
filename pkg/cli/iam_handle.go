@@ -17,6 +17,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	// "log"
 	"time"
 
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
@@ -142,6 +143,8 @@ func (c *IAMHandleCommand) Run(ctx context.Context, args []string) error {
 	if c.flagStartTime.Add(c.flagDuration).Before(time.Now()) {
 		return fmt.Errorf("expiry (start time + duration) already passed")
 	}
+
+	// log.Printf("expiry: %s", c.flagStartTime.Add(c.flagDuration).Format(time.RFC3339))
 
 	return c.handleIAM(ctx)
 }

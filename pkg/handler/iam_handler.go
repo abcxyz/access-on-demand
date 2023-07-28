@@ -196,7 +196,7 @@ func (h *IAMHandler) updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1
 		}
 
 		// Skip expired bindings.
-		expired, err := expired(cb.Condition.Expression)
+		expired, err := Expired(cb.Condition.Expression)
 		if err != nil {
 			// Continue policy update when there is error checking the AOD expiry.
 			// Cleaning up expired AOD bindings here is best effort.
@@ -260,7 +260,7 @@ func toBindingsMap(bs []*v1alpha1.Binding) map[string]map[string]struct{} {
 	return result
 }
 
-func expired(exp string) (bool, error) {
+func Expired(exp string) (bool, error) {
 	matches := expirationRegex.FindStringSubmatch(exp)
 	if len(matches) < 2 {
 		return false, fmt.Errorf("expression %q does not match format %q", exp, "request.time < timestamp('YYYY-MM-DDTHH:MM:SSZ')")

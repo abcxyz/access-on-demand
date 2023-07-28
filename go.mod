@@ -43,6 +43,7 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/posener/script v1.2.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
+	github.com/sethvargo/go-envconfig v0.9.0
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect

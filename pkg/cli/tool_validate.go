@@ -87,7 +87,6 @@ func (c *ToolValidateCommand) validate(ctx context.Context) error {
 	if err := requestutil.ReadRequestFromPath(c.flagPath, &req); err != nil {
 		return fmt.Errorf("failed to read %T: %w", &req, err)
 	}
-
 	if err := v1alpha1.ValidateToolRequest(&req); err != nil {
 		return fmt.Errorf("failed to validate %T: %w", &req, err)
 	}

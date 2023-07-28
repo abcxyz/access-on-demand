@@ -1,0 +1,11 @@
+do:
+  - >-
+    projects remove-iam-policy-binding ${INTEG_TEST_PROJECT_ID}
+    --member='user:aod-test-bot@tycho.joonix.net'
+    --role='roles/actions.Viewer'
+    --condition="expression=request.time < timestamp('${INTEG_TEST_IAM_EXPIRATION}'),title=${INTEG_TEST_CONDITION_TITLE}"
+  - >-
+    projects remove-iam-policy-binding ${INTEG_TEST_PROJECT_ID}
+    --member='user:aod-test-bot@tycho.joonix.net'
+    --role='roles/ml.viewer'
+    --condition="expression=request.time < timestamp('${INTEG_TEST_IAM_EXPIRATION}'),title=${INTEG_TEST_CONDITION_TITLE}"
