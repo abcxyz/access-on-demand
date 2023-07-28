@@ -45,8 +45,6 @@ type IAMHandleCommand struct {
 
 	flagStartTime time.Time
 
-	flagVerbose bool
-
 	// testHandler is used for testing only.
 	testHandler iamHandler
 }
@@ -97,13 +95,6 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 		Default: time.Now().UTC(),
 		Usage: `The start time of the IAM permission lifecycle in RFC3339 format. ` +
 			`Default is current UTC time.`,
-	})
-
-	f.BoolVar(&cli.BoolVar{
-		Name:    "verbose",
-		Target:  &c.flagVerbose,
-		Default: false,
-		Usage:   `Turn on verbose mode to output applied IAM changes.`,
 	})
 
 	return set
@@ -192,12 +183,9 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 		return fmt.Errorf("failed to handle IAM request: %w", err)
 	}
 
-	c.Outf("Successfully handled IAM request")
-	if c.flagVerbose {
-		c.Outf("------------")
-		if err := encodeYaml(c.Stdout(), reqWrapper); err != nil {
-			return fmt.Errorf("failed to output applied request: %w", err)
-		}
+	c.Outf("Successfully handled IAM request\n------------")
+	if err := encodeYaml(c.Stdout(), reqWrapper); err != nil {
+		return fmt.Errorf("failed to output applied request: %w", err)
 	}
 
 	return nil

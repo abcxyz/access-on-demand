@@ -137,17 +137,6 @@ policies:
 			name:    "success",
 			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h", "-start-time", st.Format(time.RFC3339)},
 			handler: &fakeIAMHandler{},
-			expOut:  "Successfully handled IAM request",
-			expReq: &v1alpha1.IAMRequestWrapper{
-				IAMRequest: validRequest,
-				Duration:   2 * time.Hour,
-				StartTime:  st,
-			},
-		},
-		{
-			name:    "success_verbose",
-			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h", "-start-time", st.Format(time.RFC3339), "-verbose"},
-			handler: &fakeIAMHandler{},
 			expOut: fmt.Sprintf(`
 Successfully handled IAM request
 ------------

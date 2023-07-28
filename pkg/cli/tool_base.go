@@ -39,8 +39,6 @@ type ToolBaseCommand struct {
 
 	flagDebug bool
 
-	flagVerbose bool
-
 	// testHandler is used for testing only.
 	testHandler toolHandler
 }
@@ -82,13 +80,6 @@ func (c *ToolBaseCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagDebug,
 		Default: false,
 		Usage:   `Turn on debug mode to print command outputs.`,
-	})
-
-	f.BoolVar(&cli.BoolVar{
-		Name:    "verbose",
-		Target:  &c.flagVerbose,
-		Default: false,
-		Usage:   `Turn on verbose mode to print commands executed.`,
 	})
 
 	return set
@@ -134,16 +125,13 @@ func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.T
 }
 
 func (c *ToolBaseCommand) output(subcmds []string, tool string) error {
-	c.Outf(`Successfully completed commands`)
-	if c.flagVerbose {
-		c.Outf("------------")
-		var cmds []string
-		for _, sub := range subcmds {
-			cmds = append(cmds, fmt.Sprintf("%s %s", tool, sub))
-		}
-		if err := encodeYaml(c.Stdout(), cmds); err != nil {
-			return fmt.Errorf("failed to output executed commands: %w", err)
-		}
+	c.Outf("Successfully completed commands\n------------")
+	var cmds []string
+	for _, sub := range subcmds {
+		cmds = append(cmds, fmt.Sprintf("%s %s", tool, sub))
+	}
+	if err := encodeYaml(c.Stdout(), cmds); err != nil {
+		return fmt.Errorf("failed to output executed commands: %w", err)
 	}
 	return nil
 }
