@@ -116,7 +116,7 @@ func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.T
 	} else {
 		opts := []handler.ToolHandlerOption{handler.WithStderr(c.Stderr())}
 		if c.flagVerbose {
-			printHeader(c.Stdout(), "Commands Output")
+			printHeader(c.Stdout(), "Tool Commands Output")
 			opts = append(opts, handler.WithDebugMode(c.Stdout()))
 		}
 		h = handler.NewToolHandler(ctx, opts...)
