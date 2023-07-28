@@ -37,7 +37,7 @@ type ToolBaseCommand struct {
 
 	flagPath string
 
-	flagDebug bool
+	flagVerbose bool
 
 	// testHandler is used for testing only.
 	testHandler toolHandler
@@ -76,10 +76,10 @@ func (c *ToolBaseCommand) Flags() *cli.FlagSet {
 	})
 
 	f.BoolVar(&cli.BoolVar{
-		Name:    "debug",
-		Target:  &c.flagDebug,
+		Name:    "verbose",
+		Target:  &c.flagVerbose,
 		Default: false,
-		Usage:   `Turn on debug mode to print command outputs.`,
+		Usage:   `Turn on verbose mode to print commands output. Note that outputs may contain sensitive information`,
 	})
 
 	return set
@@ -115,7 +115,8 @@ func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.T
 		h = c.testHandler
 	} else {
 		opts := []handler.ToolHandlerOption{handler.WithStderr(c.Stderr())}
-		if c.flagDebug {
+		if c.flagVerbose {
+			printHeader(c.Stdout(), "Commands Output")
 			opts = append(opts, handler.WithDebugMode(c.Stdout()))
 		}
 		h = handler.NewToolHandler(ctx, opts...)
@@ -125,7 +126,7 @@ func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.T
 }
 
 func (c *ToolBaseCommand) output(subcmds []string, tool string) error {
-	c.Outf("Successfully completed commands\n------------")
+	printHeader(c.Stdout(), "Successfully Completed Commands")
 	cmds := make([]string, 0, len(subcmds))
 	for _, sub := range subcmds {
 		cmds = append(cmds, fmt.Sprintf("%s %s", tool, sub))

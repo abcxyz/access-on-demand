@@ -35,3 +35,8 @@ func encodeYaml(w io.Writer, v any) error {
 
 	return nil
 }
+
+// printHeader prints the hearder to w.
+func printHeader(w io.Writer, header string) {
+	fmt.Fprintf(w, "------%s------\n", header)
+}
