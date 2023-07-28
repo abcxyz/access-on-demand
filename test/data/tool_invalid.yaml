@@ -1,0 +1,7 @@
+tool: 'invalid'
+do:
+  - 'projects list --uri'
+  - 'projects list --format json --uri'
+cleanup:
+  - 'projects list --format json --uri'
+  - 'projects list --uri'

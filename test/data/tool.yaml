@@ -1,0 +1,6 @@
+do:
+  - 'projects list --uri --filter projectId:${INTEG_TEST_PROJECT_ID}'
+  - 'projects list --format json --uri --filter projectId:${INTEG_TEST_PROJECT_ID}'
+cleanup:
+  - 'projects list --format json --uri --filter projectId:${INTEG_TEST_PROJECT_ID}'
+  - 'projects list --uri --filter projectId:${INTEG_TEST_PROJECT_ID}'
