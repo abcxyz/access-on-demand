@@ -85,6 +85,7 @@ func (h *ToolHandler) run(tool string, cmds []string) error {
 		// stdout.
 		if h.stdout != nil {
 			cmd.Stdout = h.stdout
+			fmt.Fprintf(cmd.Stdout, "Running %s: ", fmt.Sprintf("%s %s", tool, c))
 		}
 		cmd.Stderr = h.stderr
 		if err := cmd.Run(); err != nil {
