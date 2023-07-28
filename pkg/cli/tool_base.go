@@ -126,7 +126,7 @@ func (c *ToolBaseCommand) setup(ctx context.Context, args []string) (*v1alpha1.T
 
 func (c *ToolBaseCommand) output(subcmds []string, tool string) error {
 	c.Outf("Successfully completed commands\n------------")
-	var cmds []string
+	cmds := make([]string, 0, len(subcmds))
 	for _, sub := range subcmds {
 		cmds = append(cmds, fmt.Sprintf("%s %s", tool, sub))
 	}
