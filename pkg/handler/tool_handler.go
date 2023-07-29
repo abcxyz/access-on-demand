@@ -42,16 +42,18 @@ func WithStderr(w io.Writer) ToolHandlerOption {
 	}
 }
 
-// WithDebugMode sets the handler's stdout to w.
-func WithDebugMode(w io.Writer) ToolHandlerOption {
+// WithStdout sets the handler's stdout to w. Note that it may output sensitive
+// information.
+func WithStdout(w io.Writer) ToolHandlerOption {
 	return func(h *ToolHandler) *ToolHandler {
 		h.stdout = w
 		return h
 	}
 }
 
-// WithDefaultDebugMode sets the handler's stdout to os.Stdout.
-func WithDefaultDebugMode() ToolHandlerOption {
+// WithDefaultStdout sets the handler's stdout to os.Stdout. Note that it may
+// output sensitive information.
+func WithDefaultStdout() ToolHandlerOption {
 	return func(h *ToolHandler) *ToolHandler {
 		h.stdout = os.Stdout
 		return h
@@ -79,17 +81,20 @@ func (h *ToolHandler) Cleanup(ctx context.Context, r *v1alpha1.ToolRequest) erro
 }
 
 func (h *ToolHandler) run(tool string, cmds []string) error {
-	for _, c := range cmds {
+	for i, c := range cmds {
 		cmd := exec.Command(tool, c)
-		// If stdout is set, debug mode is on and it writes the command output to
-		// stdout.
+		// If stdout is set, it writes the command output to stdout.
 		if h.stdout != nil {
 			cmd.Stdout = h.stdout
-			fmt.Fprintf(cmd.Stdout, "Running %s: ", fmt.Sprintf("%s %s", tool, c))
+			fmt.Fprintf(cmd.Stdout, "%s %s\n", tool, c)
 		}
 		cmd.Stderr = h.stderr
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to run command %q, error %w", c, err)
+		}
+		// Empty line in between commands.
+		if i < (len(cmds) - 1) {
+			fmt.Fprintf(cmd.Stdout, "\n")
 		}
 	}
 	return nil

@@ -45,7 +45,13 @@ func TestToolHandlerDo(t *testing.T) {
 					"test do2",
 				},
 			},
-			expOutResponse: "test do1\ntest do2",
+			expOutResponse: `
+echo test do1
+test do1
+
+echo test do2
+test do2
+`,
 		},
 		{
 			name: "invalid_tool",
@@ -55,6 +61,7 @@ func TestToolHandlerDo(t *testing.T) {
 					"test do",
 				},
 			},
+			expOutResponse:     "invalid test do",
 			expHandleErrSubStr: `failed to run command "test do"`,
 		},
 		{
@@ -65,6 +72,7 @@ func TestToolHandlerDo(t *testing.T) {
 					"dir_not_exist",
 				},
 			},
+			expOutResponse:     "ls dir_not_exist",
 			expHandleErrSubStr: `failed to run command "dir_not_exist"`,
 			expOutErr:          `No such file or directory`,
 		},
@@ -79,7 +87,7 @@ func TestToolHandlerDo(t *testing.T) {
 			ctx := context.Background()
 			stderr := bytes.NewBuffer(nil)
 			stdout := bytes.NewBuffer(nil)
-			h := NewToolHandler(ctx, WithStderr(stderr), WithDebugMode(stdout))
+			h := NewToolHandler(ctx, WithStderr(stderr), WithStdout(stdout))
 
 			// Run test.
 			gotErr := h.Do(ctx, tc.request)
@@ -116,7 +124,13 @@ func TestToolHandlerCleanup(t *testing.T) {
 					"test do2",
 				},
 			},
-			expOutResponse: "test do1\ntest do2",
+			expOutResponse: `
+echo test do1
+test do1
+
+echo test do2
+test do2
+`,
 		},
 		{
 			name: "invalid_tool",
@@ -126,6 +140,7 @@ func TestToolHandlerCleanup(t *testing.T) {
 					"test do",
 				},
 			},
+			expOutResponse:     "invalid test do",
 			expHandleErrSubStr: `failed to run command "test do"`,
 		},
 		{
@@ -136,6 +151,7 @@ func TestToolHandlerCleanup(t *testing.T) {
 					"dir_not_exist",
 				},
 			},
+			expOutResponse:     "ls dir_not_exist",
 			expHandleErrSubStr: `failed to run command "dir_not_exist"`,
 			expOutErr:          `No such file or directory`,
 		},
@@ -150,7 +166,7 @@ func TestToolHandlerCleanup(t *testing.T) {
 			ctx := context.Background()
 			stderr := bytes.NewBuffer(nil)
 			stdout := bytes.NewBuffer(nil)
-			h := NewToolHandler(ctx, WithStderr(stderr), WithDebugMode(stdout))
+			h := NewToolHandler(ctx, WithStderr(stderr), WithStdout(stdout))
 
 			// Run test.
 			gotErr := h.Cleanup(ctx, tc.request)
