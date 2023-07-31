@@ -30,6 +30,8 @@ on:
 
 permissions:
   pull-requests: 'write'
+  # Required for closing a branch, see ref: https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
+  contents: 'write'
 
 jobs:
   expire:
@@ -37,6 +39,9 @@ jobs:
     steps:
       - uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
         with:
+          # Token required for authentication when deleting a branch, see
+          # JavaScript example in ref: https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#delete-a-reference
+          github-token: '${{ github.token }}'
           result-encoding: 'string'
           retries: 3
           script: |-
@@ -92,7 +97,16 @@ jobs:
                   owner: repoOwner,
                   repo: repoName,
                   issue_number: pull['number'],
-                  body: `**\`Access on Demand\`** - request closed due to inactivity for at least ${{ inputs.expiry_hours }} hours`,
+                  body: `**\`Access on Demand\`** - request closed and branch deleted due to inactivity for at least ${{ inputs.expiry_hours }} hours`,
+                });
+
+                core.info(`Deleting branch ${pull['head']['ref']}`);
+
+                // Delete branch.
+                await github.rest.git.deleteRef({
+                  owner: repoOwner,
+                  repo: repoName,
+                  ref: `heads/${pull['head']['ref']}`,
                 });
               } else {
                 core.info(`Skipping #${pull['number']} (${pull['title']}) - not an AOD request`);
