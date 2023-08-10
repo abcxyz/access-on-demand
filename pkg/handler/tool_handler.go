@@ -21,6 +21,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
+	"strings"
 
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 )
@@ -82,7 +84,8 @@ func (h *ToolHandler) Cleanup(ctx context.Context, r *v1alpha1.ToolRequest) erro
 
 func (h *ToolHandler) run(tool string, cmds []string) error {
 	for i, c := range cmds {
-		cmd := exec.Command(tool, c)
+		args := splitArgs(c)
+		cmd := exec.Command(tool, args...)
 		// If stdout is set, it writes the command output to stdout.
 		if h.stdout != nil {
 			cmd.Stdout = h.stdout
@@ -98,4 +101,17 @@ func (h *ToolHandler) run(tool string, cmds []string) error {
 		}
 	}
 	return nil
+}
+
+func splitArgs(str string) []string {
+	// Find all words and quoted sentences.
+	pattern := regexp.MustCompile(`("[^"]+?"|\S+)`)
+	strs := pattern.FindAllString(str, -1)
+
+	// Trim double quotes.
+	var args []string
+	for _, str := range strs {
+		args = append(args, strings.Trim(str, "\""))
+	}
+	return args
 }

@@ -39,17 +39,17 @@ func TestToolHandlerDo(t *testing.T) {
 		{
 			name: "success",
 			request: &v1alpha1.ToolRequest{
-				Tool: "echo",
+				Tool: "bash",
 				Do: []string{
-					"test do1",
-					"test do2",
+					`-c "echo test do1"`,
+					`-c "echo test do2"`,
 				},
 			},
 			expOutResponse: `
-echo test do1
+bash -c "echo test do1"
 test do1
 
-echo test do2
+bash -c "echo test do2"
 test do2
 `,
 		},
@@ -118,18 +118,18 @@ func TestToolHandlerCleanup(t *testing.T) {
 		{
 			name: "success",
 			request: &v1alpha1.ToolRequest{
-				Tool: "echo",
+				Tool: "bash",
 				Cleanup: []string{
-					"test do1",
-					"test do2",
+					`-c "echo test cleanup1"`,
+					`-c "echo test cleanup2"`,
 				},
 			},
 			expOutResponse: `
-echo test do1
-test do1
+bash -c "echo test cleanup1"
+test cleanup1
 
-echo test do2
-test do2
+bash -c "echo test cleanup2"
+test cleanup2
 `,
 		},
 		{
@@ -137,11 +137,11 @@ test do2
 			request: &v1alpha1.ToolRequest{
 				Tool: "invalid",
 				Cleanup: []string{
-					"test do",
+					"test cleanup",
 				},
 			},
-			expOutResponse:     "invalid test do",
-			expHandleErrSubStr: `failed to run command "test do"`,
+			expOutResponse:     "invalid test cleanup",
+			expHandleErrSubStr: `failed to run command "test cleanup"`,
 		},
 		{
 			name: "failed_to_execute_tool",
