@@ -82,19 +82,22 @@ func (h *ToolHandler) Cleanup(ctx context.Context, r *v1alpha1.ToolRequest) erro
 
 func (h *ToolHandler) run(tool string, cmds []string) error {
 	for i, c := range cmds {
-		cmd := exec.Command(tool, c)
+		toolCmd := fmt.Sprintf("%s %s", tool, c)
+		// Use `bash -c` to run the toolCmd as script to avoid parsing toolCmd to a
+		// list of args.
+		cmd := exec.Command("bash", "-c", toolCmd)
 		// If stdout is set, it writes the command output to stdout.
 		if h.stdout != nil {
 			cmd.Stdout = h.stdout
-			fmt.Fprintf(cmd.Stdout, "%s %s\n", tool, c)
+			fmt.Fprint(cmd.Stdout, toolCmd, "\n")
 		}
 		cmd.Stderr = h.stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to run command %q, error %w", c, err)
+			return fmt.Errorf("failed to run command %q, error %w", toolCmd, err)
 		}
 		// Empty line in between commands.
-		if i < (len(cmds) - 1) {
-			fmt.Fprintf(cmd.Stdout, "\n")
+		if h.stdout != nil && i < (len(cmds)-1) {
+			fmt.Fprint(cmd.Stdout, "\n")
 		}
 	}
 	return nil

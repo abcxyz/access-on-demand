@@ -29,7 +29,8 @@ type ToolDoCommand struct {
 }
 
 func (c *ToolDoCommand) Desc() string {
-	return `Execute the "do" commands in request YAML file at the given path`
+	return `Execute the "do" commands in request YAML file at the given path, ` +
+		`this command only works where bash is available`
 }
 
 func (c *ToolDoCommand) Run(ctx context.Context, args []string) error {

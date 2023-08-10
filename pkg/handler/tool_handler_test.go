@@ -32,6 +32,7 @@ func TestToolHandlerDo(t *testing.T) {
 	cases := []struct {
 		name               string
 		request            *v1alpha1.ToolRequest
+		stdout             *bytes.Buffer
 		expHandleErrSubStr string
 		expOutErr          string
 		expOutResponse     string
@@ -39,19 +40,30 @@ func TestToolHandlerDo(t *testing.T) {
 		{
 			name: "success",
 			request: &v1alpha1.ToolRequest{
-				Tool: "echo",
+				Tool: "bash",
 				Do: []string{
-					"test do1",
-					"test do2",
+					`-c "echo test do1"`,
+					`-c "echo test do2"`,
 				},
 			},
+			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
-echo test do1
+bash -c "echo test do1"
 test do1
 
-echo test do2
+bash -c "echo test do2"
 test do2
 `,
+		},
+		{
+			name: "success_nil_stdout",
+			request: &v1alpha1.ToolRequest{
+				Tool: "bash",
+				Do: []string{
+					`-c "echo test do1"`,
+					`-c "echo test do2"`,
+				},
+			},
 		},
 		{
 			name: "invalid_tool",
@@ -61,8 +73,9 @@ test do2
 					"test do",
 				},
 			},
+			stdout:             bytes.NewBuffer(nil),
 			expOutResponse:     "invalid test do",
-			expHandleErrSubStr: `failed to run command "test do"`,
+			expHandleErrSubStr: `failed to run command "invalid test do"`,
 		},
 		{
 			name: "failed_to_execute_tool_command",
@@ -72,8 +85,9 @@ test do2
 					"dir_not_exist",
 				},
 			},
+			stdout:             bytes.NewBuffer(nil),
 			expOutResponse:     "ls dir_not_exist",
-			expHandleErrSubStr: `failed to run command "dir_not_exist"`,
+			expHandleErrSubStr: `failed to run command "ls dir_not_exist"`,
 			expOutErr:          `No such file or directory`,
 		},
 	}
@@ -86,8 +100,11 @@ test do2
 
 			ctx := context.Background()
 			stderr := bytes.NewBuffer(nil)
-			stdout := bytes.NewBuffer(nil)
-			h := NewToolHandler(ctx, WithStderr(stderr), WithStdout(stdout))
+			opts := []ToolHandlerOption{WithStderr(stderr)}
+			if tc.stdout != nil {
+				opts = append(opts, WithStdout(tc.stdout))
+			}
+			h := NewToolHandler(ctx, opts...)
 
 			// Run test.
 			gotErr := h.Do(ctx, tc.request)
@@ -98,7 +115,11 @@ test do2
 				diff := cmp.Diff(strings.TrimSpace(tc.expOutErr), strings.TrimSpace(stderr.String()))
 				t.Errorf("Process(%+v) got unexpected error output substring: %v", tc.name, diff)
 			}
-			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(stdout.String())); diff != "" {
+			var gotOut string
+			if tc.stdout != nil {
+				gotOut = tc.stdout.String()
+			}
+			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(gotOut)); diff != "" {
 				t.Errorf("Process(%+v) got output response diff (-want, +got): %v", tc.name, diff)
 			}
 		})
@@ -111,6 +132,7 @@ func TestToolHandlerCleanup(t *testing.T) {
 	cases := []struct {
 		name               string
 		request            *v1alpha1.ToolRequest
+		stdout             *bytes.Buffer
 		expHandleErrSubStr string
 		expOutErr          string
 		expOutResponse     string
@@ -118,30 +140,42 @@ func TestToolHandlerCleanup(t *testing.T) {
 		{
 			name: "success",
 			request: &v1alpha1.ToolRequest{
-				Tool: "echo",
+				Tool: "bash",
 				Cleanup: []string{
-					"test do1",
-					"test do2",
+					`-c "echo test cleanup1"`,
+					`-c "echo test cleanup2"`,
 				},
 			},
+			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
-echo test do1
-test do1
+bash -c "echo test cleanup1"
+test cleanup1
 
-echo test do2
-test do2
+bash -c "echo test cleanup2"
+test cleanup2
 `,
+		},
+		{
+			name: "success_nil_stdout",
+			request: &v1alpha1.ToolRequest{
+				Tool: "bash",
+				Cleanup: []string{
+					`-c "echo test cleanup1"`,
+					`-c "echo test cleanup2"`,
+				},
+			},
 		},
 		{
 			name: "invalid_tool",
 			request: &v1alpha1.ToolRequest{
 				Tool: "invalid",
 				Cleanup: []string{
-					"test do",
+					"test cleanup",
 				},
 			},
-			expOutResponse:     "invalid test do",
-			expHandleErrSubStr: `failed to run command "test do"`,
+			stdout:             bytes.NewBuffer(nil),
+			expOutResponse:     "invalid test cleanup",
+			expHandleErrSubStr: `failed to run command "invalid test cleanup"`,
 		},
 		{
 			name: "failed_to_execute_tool",
@@ -151,8 +185,9 @@ test do2
 					"dir_not_exist",
 				},
 			},
+			stdout:             bytes.NewBuffer(nil),
 			expOutResponse:     "ls dir_not_exist",
-			expHandleErrSubStr: `failed to run command "dir_not_exist"`,
+			expHandleErrSubStr: `failed to run command "ls dir_not_exist"`,
 			expOutErr:          `No such file or directory`,
 		},
 	}
@@ -165,8 +200,11 @@ test do2
 
 			ctx := context.Background()
 			stderr := bytes.NewBuffer(nil)
-			stdout := bytes.NewBuffer(nil)
-			h := NewToolHandler(ctx, WithStderr(stderr), WithStdout(stdout))
+			opts := []ToolHandlerOption{WithStderr(stderr)}
+			if tc.stdout != nil {
+				opts = append(opts, WithStdout(tc.stdout))
+			}
+			h := NewToolHandler(ctx, opts...)
 
 			// Run test.
 			gotErr := h.Cleanup(ctx, tc.request)
@@ -177,7 +215,11 @@ test do2
 				diff := cmp.Diff(strings.TrimSpace(tc.expOutErr), strings.TrimSpace(stderr.String()))
 				t.Errorf("Process(%+v) got unexpected error output substring: %v", tc.name, diff)
 			}
-			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(stdout.String())); diff != "" {
+			var gotOut string
+			if tc.stdout != nil {
+				gotOut = tc.stdout.String()
+			}
+			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(gotOut)); diff != "" {
 				t.Errorf("Process(%+v) got output response diff (-want, +got): %v", tc.name, diff)
 			}
 		})

@@ -29,7 +29,8 @@ type ToolCleanupCommand struct {
 }
 
 func (c *ToolCleanupCommand) Desc() string {
-	return `Execute the "cleanup" commands in request YAML file at the given path`
+	return `Execute the "cleanup" commands in request YAML file at the given ` +
+		`path, this command only works where bash is available`
 }
 
 func (c *ToolCleanupCommand) Run(ctx context.Context, args []string) error {
