@@ -21,8 +21,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"regexp"
-	"strings"
 
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 )
@@ -84,38 +82,21 @@ func (h *ToolHandler) Cleanup(ctx context.Context, r *v1alpha1.ToolRequest) erro
 
 func (h *ToolHandler) run(tool string, cmds []string) error {
 	for i, c := range cmds {
-		args := splitArgs(c)
-		cmd := exec.Command(tool, args...)
+		script := fmt.Sprintf("%s %s", tool, c)
+		cmd := exec.Command("bash", "-c", script)
 		// If stdout is set, it writes the command output to stdout.
 		if h.stdout != nil {
 			cmd.Stdout = h.stdout
-			fmt.Fprintf(cmd.Stdout, "%s %s\n", tool, c)
+			fmt.Fprint(cmd.Stdout, script, "\n")
 		}
 		cmd.Stderr = h.stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to run command %q, error %w", c, err)
+			return fmt.Errorf("failed to run command %q, error %w", script, err)
 		}
 		// Empty line in between commands.
 		if h.stdout != nil && i < (len(cmds)-1) {
-			fmt.Fprintf(cmd.Stdout, "\n")
+			fmt.Fprint(cmd.Stdout, "\n")
 		}
 	}
 	return nil
-}
-
-func splitArgs(str string) []string {
-	// Find all substrings with no spaces and quoted strings.
-	pattern := regexp.MustCompile(`("[^"]+?"|\S+)`)
-	strs := pattern.FindAllString(str, -1)
-
-	// Trim double quotes when the arg has leading double quote.
-	args := make([]string, len(strs))
-	for i, str := range strs {
-		if str[0] == '"' {
-			args[i] = strings.Trim(str, "\"")
-		} else {
-			args[i] = str
-		}
-	}
-	return args
 }

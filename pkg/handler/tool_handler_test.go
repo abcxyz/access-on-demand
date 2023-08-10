@@ -66,20 +66,6 @@ test do2
 			},
 		},
 		{
-			name: "success_do_not_trim",
-			request: &v1alpha1.ToolRequest{
-				Tool: "echo",
-				Do: []string{
-					`--args="foo,bar"`,
-				},
-			},
-			stdout: bytes.NewBuffer(nil),
-			expOutResponse: `
-echo --args="foo,bar"
---args="foo,bar"
-`,
-		},
-		{
 			name: "invalid_tool",
 			request: &v1alpha1.ToolRequest{
 				Tool: "invalid",
@@ -89,7 +75,7 @@ echo --args="foo,bar"
 			},
 			stdout:             bytes.NewBuffer(nil),
 			expOutResponse:     "invalid test do",
-			expHandleErrSubStr: `failed to run command "test do"`,
+			expHandleErrSubStr: `failed to run command "invalid test do"`,
 		},
 		{
 			name: "failed_to_execute_tool_command",
@@ -101,7 +87,7 @@ echo --args="foo,bar"
 			},
 			stdout:             bytes.NewBuffer(nil),
 			expOutResponse:     "ls dir_not_exist",
-			expHandleErrSubStr: `failed to run command "dir_not_exist"`,
+			expHandleErrSubStr: `failed to run command "ls dir_not_exist"`,
 			expOutErr:          `No such file or directory`,
 		},
 	}
@@ -180,20 +166,6 @@ test cleanup2
 			},
 		},
 		{
-			name: "success_do_not_trim",
-			request: &v1alpha1.ToolRequest{
-				Tool: "echo",
-				Cleanup: []string{
-					`--args="foo,bar"`,
-				},
-			},
-			stdout: bytes.NewBuffer(nil),
-			expOutResponse: `
-echo --args="foo,bar"
---args="foo,bar"
-`,
-		},
-		{
 			name: "invalid_tool",
 			request: &v1alpha1.ToolRequest{
 				Tool: "invalid",
@@ -203,7 +175,7 @@ echo --args="foo,bar"
 			},
 			stdout:             bytes.NewBuffer(nil),
 			expOutResponse:     "invalid test cleanup",
-			expHandleErrSubStr: `failed to run command "test cleanup"`,
+			expHandleErrSubStr: `failed to run command "invalid test cleanup"`,
 		},
 		{
 			name: "failed_to_execute_tool",
@@ -215,7 +187,7 @@ echo --args="foo,bar"
 			},
 			stdout:             bytes.NewBuffer(nil),
 			expOutResponse:     "ls dir_not_exist",
-			expHandleErrSubStr: `failed to run command "dir_not_exist"`,
+			expHandleErrSubStr: `failed to run command "ls dir_not_exist"`,
 			expOutErr:          `No such file or directory`,
 		},
 	}
