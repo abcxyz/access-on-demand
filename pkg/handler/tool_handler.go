@@ -96,7 +96,7 @@ func (h *ToolHandler) run(tool string, cmds []string) error {
 			return fmt.Errorf("failed to run command %q, error %w", c, err)
 		}
 		// Empty line in between commands.
-		if i < (len(cmds) - 1) {
+		if h.stdout != nil && i < (len(cmds)-1) {
 			fmt.Fprintf(cmd.Stdout, "\n")
 		}
 	}

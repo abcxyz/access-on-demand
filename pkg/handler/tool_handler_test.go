@@ -32,6 +32,7 @@ func TestToolHandlerDo(t *testing.T) {
 	cases := []struct {
 		name               string
 		request            *v1alpha1.ToolRequest
+		stdout             *bytes.Buffer
 		expHandleErrSubStr string
 		expOutErr          string
 		expOutResponse     string
@@ -45,6 +46,7 @@ func TestToolHandlerDo(t *testing.T) {
 					`-c "echo test do2"`,
 				},
 			},
+			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
 bash -c "echo test do1"
 test do1
@@ -54,6 +56,16 @@ test do2
 `,
 		},
 		{
+			name: "success_nil_stdout",
+			request: &v1alpha1.ToolRequest{
+				Tool: "bash",
+				Do: []string{
+					`-c "echo test do1"`,
+					`-c "echo test do2"`,
+				},
+			},
+		},
+		{
 			name: "success_do_not_trim",
 			request: &v1alpha1.ToolRequest{
 				Tool: "echo",
@@ -61,6 +73,7 @@ test do2
 					`--args="foo,bar"`,
 				},
 			},
+			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
 echo --args="foo,bar"
 --args="foo,bar"
@@ -74,6 +87,7 @@ echo --args="foo,bar"
 					"test do",
 				},
 			},
+			stdout:             bytes.NewBuffer(nil),
 			expOutResponse:     "invalid test do",
 			expHandleErrSubStr: `failed to run command "test do"`,
 		},
@@ -85,6 +99,7 @@ echo --args="foo,bar"
 					"dir_not_exist",
 				},
 			},
+			stdout:             bytes.NewBuffer(nil),
 			expOutResponse:     "ls dir_not_exist",
 			expHandleErrSubStr: `failed to run command "dir_not_exist"`,
 			expOutErr:          `No such file or directory`,
@@ -99,8 +114,11 @@ echo --args="foo,bar"
 
 			ctx := context.Background()
 			stderr := bytes.NewBuffer(nil)
-			stdout := bytes.NewBuffer(nil)
-			h := NewToolHandler(ctx, WithStderr(stderr), WithStdout(stdout))
+			opts := []ToolHandlerOption{WithStderr(stderr)}
+			if tc.stdout != nil {
+				opts = append(opts, WithStdout(tc.stdout))
+			}
+			h := NewToolHandler(ctx, opts...)
 
 			// Run test.
 			gotErr := h.Do(ctx, tc.request)
@@ -111,7 +129,11 @@ echo --args="foo,bar"
 				diff := cmp.Diff(strings.TrimSpace(tc.expOutErr), strings.TrimSpace(stderr.String()))
 				t.Errorf("Process(%+v) got unexpected error output substring: %v", tc.name, diff)
 			}
-			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(stdout.String())); diff != "" {
+			var gotOut string
+			if tc.stdout != nil {
+				gotOut = tc.stdout.String()
+			}
+			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(gotOut)); diff != "" {
 				t.Errorf("Process(%+v) got output response diff (-want, +got): %v", tc.name, diff)
 			}
 		})
@@ -124,6 +146,7 @@ func TestToolHandlerCleanup(t *testing.T) {
 	cases := []struct {
 		name               string
 		request            *v1alpha1.ToolRequest
+		stdout             *bytes.Buffer
 		expHandleErrSubStr string
 		expOutErr          string
 		expOutResponse     string
@@ -137,6 +160,7 @@ func TestToolHandlerCleanup(t *testing.T) {
 					`-c "echo test cleanup2"`,
 				},
 			},
+			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
 bash -c "echo test cleanup1"
 test cleanup1
@@ -146,6 +170,16 @@ test cleanup2
 `,
 		},
 		{
+			name: "success_nil_stdout",
+			request: &v1alpha1.ToolRequest{
+				Tool: "bash",
+				Cleanup: []string{
+					`-c "echo test cleanup1"`,
+					`-c "echo test cleanup2"`,
+				},
+			},
+		},
+		{
 			name: "success_do_not_trim",
 			request: &v1alpha1.ToolRequest{
 				Tool: "echo",
@@ -153,6 +187,7 @@ test cleanup2
 					`--args="foo,bar"`,
 				},
 			},
+			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
 echo --args="foo,bar"
 --args="foo,bar"
@@ -166,6 +201,7 @@ echo --args="foo,bar"
 					"test cleanup",
 				},
 			},
+			stdout:             bytes.NewBuffer(nil),
 			expOutResponse:     "invalid test cleanup",
 			expHandleErrSubStr: `failed to run command "test cleanup"`,
 		},
@@ -177,6 +213,7 @@ echo --args="foo,bar"
 					"dir_not_exist",
 				},
 			},
+			stdout:             bytes.NewBuffer(nil),
 			expOutResponse:     "ls dir_not_exist",
 			expHandleErrSubStr: `failed to run command "dir_not_exist"`,
 			expOutErr:          `No such file or directory`,
@@ -191,8 +228,11 @@ echo --args="foo,bar"
 
 			ctx := context.Background()
 			stderr := bytes.NewBuffer(nil)
-			stdout := bytes.NewBuffer(nil)
-			h := NewToolHandler(ctx, WithStderr(stderr), WithStdout(stdout))
+			opts := []ToolHandlerOption{WithStderr(stderr)}
+			if tc.stdout != nil {
+				opts = append(opts, WithStdout(tc.stdout))
+			}
+			h := NewToolHandler(ctx, opts...)
 
 			// Run test.
 			gotErr := h.Cleanup(ctx, tc.request)
@@ -203,7 +243,11 @@ echo --args="foo,bar"
 				diff := cmp.Diff(strings.TrimSpace(tc.expOutErr), strings.TrimSpace(stderr.String()))
 				t.Errorf("Process(%+v) got unexpected error output substring: %v", tc.name, diff)
 			}
-			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(stdout.String())); diff != "" {
+			var gotOut string
+			if tc.stdout != nil {
+				gotOut = tc.stdout.String()
+			}
+			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(gotOut)); diff != "" {
 				t.Errorf("Process(%+v) got output response diff (-want, +got): %v", tc.name, diff)
 			}
 		})
