@@ -104,14 +104,18 @@ func (h *ToolHandler) run(tool string, cmds []string) error {
 }
 
 func splitArgs(str string) []string {
-	// Find all words and quoted sentences.
+	// Find all substrings with no spaces and quoted strings.
 	pattern := regexp.MustCompile(`("[^"]+?"|\S+)`)
 	strs := pattern.FindAllString(str, -1)
 
-	// Trim double quotes.
+	// Trim double quotes when the arg has leading double quote.
 	args := make([]string, len(strs))
 	for i, str := range strs {
-		args[i] = strings.Trim(str, "\"")
+		if str[0] == '"' {
+			args[i] = strings.Trim(str, "\"")
+		} else {
+			args[i] = str
+		}
 	}
 	return args
 }

@@ -54,6 +54,19 @@ test do2
 `,
 		},
 		{
+			name: "success_do_not_trim",
+			request: &v1alpha1.ToolRequest{
+				Tool: "echo",
+				Do: []string{
+					`--args="foo,bar"`,
+				},
+			},
+			expOutResponse: `
+echo --args="foo,bar"
+--args="foo,bar"
+`,
+		},
+		{
 			name: "invalid_tool",
 			request: &v1alpha1.ToolRequest{
 				Tool: "invalid",
@@ -130,6 +143,19 @@ test cleanup1
 
 bash -c "echo test cleanup2"
 test cleanup2
+`,
+		},
+		{
+			name: "success_do_not_trim",
+			request: &v1alpha1.ToolRequest{
+				Tool: "echo",
+				Cleanup: []string{
+					`--args="foo,bar"`,
+				},
+			},
+			expOutResponse: `
+echo --args="foo,bar"
+--args="foo,bar"
 `,
 		},
 		{
