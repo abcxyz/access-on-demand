@@ -109,9 +109,9 @@ func splitArgs(str string) []string {
 	strs := pattern.FindAllString(str, -1)
 
 	// Trim double quotes.
-	var args []string
-	for _, str := range strs {
-		args = append(args, strings.Trim(str, "\""))
+	args := make([]string, len(strs))
+	for i, str := range strs {
+		args[i] = strings.Trim(str, "\"")
 	}
 	return args
 }
