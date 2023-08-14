@@ -87,7 +87,7 @@ func (h *ToolHandler) run(tool string, cmds []string) error {
 
 		args, err := shellwords.Parse(c)
 		if err != nil {
-			return fmt.Errorf("failed to parse cmd %q, error %w", toolCmd, err)
+			return fmt.Errorf("failed to parse cmd %q: %w", toolCmd, err)
 		}
 		cmd := exec.Command(tool, args...)
 		// If stdout is set, it writes the command output to stdout.

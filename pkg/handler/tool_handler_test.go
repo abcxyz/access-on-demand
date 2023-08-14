@@ -134,14 +134,14 @@ test1`,
 				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
 			}
 			if !strings.Contains(stderr.String(), tc.expOutErr) {
-				t.Errorf("Process(%+v) got error output %q, does not contain want substring: %q", tc.name, stderr.String(), tc.expOutErr)
+				t.Errorf("Process(%+v) error output got %q, want substring: %q", tc.name, stderr.String(), tc.expOutErr)
 			}
 			var gotOut string
 			if tc.stdout != nil {
 				gotOut = tc.stdout.String()
 			}
 			if strings.TrimSpace(tc.expOutResponse) != strings.TrimSpace(gotOut) {
-				t.Errorf("Process(%+v) got output response %q, but want %q)", tc.name, gotOut, tc.expOutResponse)
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, gotOut, tc.expOutResponse)
 			}
 		})
 	}
@@ -256,14 +256,14 @@ test1`,
 				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
 			}
 			if !strings.Contains(stderr.String(), tc.expOutErr) {
-				t.Errorf("Process(%+v) got error output %q, does not contain want substring: %q", tc.name, stderr.String(), tc.expOutErr)
+				t.Errorf("Process(%+v) error output got %q, want substring: %q", tc.name, stderr.String(), tc.expOutErr)
 			}
 			var gotOut string
 			if tc.stdout != nil {
 				gotOut = tc.stdout.String()
 			}
 			if strings.TrimSpace(tc.expOutResponse) != strings.TrimSpace(gotOut) {
-				t.Errorf("Process(%+v) got output response %q, but want %q)", tc.name, gotOut, tc.expOutResponse)
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, gotOut, tc.expOutResponse)
 			}
 		})
 	}
