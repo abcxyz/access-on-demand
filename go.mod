@@ -8,6 +8,7 @@ require (
 	github.com/abcxyz/pkg v0.5.1-0.20230721184008-3bacc31f6871
 	github.com/google/go-cmp v0.5.9
 	github.com/googleapis/gax-go/v2 v2.8.0
+	github.com/mattn/go-shellwords v1.0.12
 	github.com/posener/complete/v2 v2.1.0
 	github.com/sethvargo/go-retry v0.2.4
 	google.golang.org/api v0.118.0

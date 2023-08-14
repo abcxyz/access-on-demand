@@ -23,6 +23,7 @@ import (
 	"os/exec"
 
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
+	"github.com/mattn/go-shellwords"
 )
 
 // ToolHandler runs tool commands in the ToolRequest.
@@ -83,9 +84,12 @@ func (h *ToolHandler) Cleanup(ctx context.Context, r *v1alpha1.ToolRequest) erro
 func (h *ToolHandler) run(tool string, cmds []string) error {
 	for i, c := range cmds {
 		toolCmd := fmt.Sprintf("%s %s", tool, c)
-		// Use `bash -c` to run the toolCmd as script to avoid parsing toolCmd to a
-		// list of args.
-		cmd := exec.Command("bash", "-c", toolCmd)
+
+		args, err := shellwords.Parse(c)
+		if err != nil {
+			return fmt.Errorf("failed to parse cmd %q, error %w", toolCmd, err)
+		}
+		cmd := exec.Command(tool, args...)
 		// If stdout is set, it writes the command output to stdout.
 		if h.stdout != nil {
 			cmd.Stdout = h.stdout
