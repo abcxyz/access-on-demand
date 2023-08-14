@@ -23,7 +23,6 @@ import (
 
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/pkg/testutil"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestToolHandlerDo(t *testing.T) {
@@ -64,6 +63,29 @@ test do2
 					`-c "echo test do2"`,
 				},
 			},
+		},
+		{
+			name: "fail_to_parse_cmd",
+			request: &v1alpha1.ToolRequest{
+				Tool: "bash",
+				Do: []string{
+					`-c "echo test do1`,
+				},
+			},
+			expHandleErrSubStr: "failed to parse cmd",
+		},
+		{
+			name: "fail_to_run",
+			request: &v1alpha1.ToolRequest{
+				Tool: "echo",
+				Do: []string{
+					`test1 && test2`,
+				},
+			},
+			stdout: bytes.NewBuffer(nil),
+			expOutResponse: `
+echo test1 && test2
+test1`,
 		},
 		{
 			name: "invalid_tool",
@@ -112,15 +134,14 @@ test do2
 				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
 			}
 			if !strings.Contains(stderr.String(), tc.expOutErr) {
-				diff := cmp.Diff(strings.TrimSpace(tc.expOutErr), strings.TrimSpace(stderr.String()))
-				t.Errorf("Process(%+v) got unexpected error output substring: %v", tc.name, diff)
+				t.Errorf("Process(%+v) error output got %q, want substring: %q", tc.name, stderr.String(), tc.expOutErr)
 			}
 			var gotOut string
 			if tc.stdout != nil {
 				gotOut = tc.stdout.String()
 			}
-			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(gotOut)); diff != "" {
-				t.Errorf("Process(%+v) got output response diff (-want, +got): %v", tc.name, diff)
+			if strings.TrimSpace(tc.expOutResponse) != strings.TrimSpace(gotOut) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, gotOut, tc.expOutResponse)
 			}
 		})
 	}
@@ -164,6 +185,29 @@ test cleanup2
 					`-c "echo test cleanup2"`,
 				},
 			},
+		},
+		{
+			name: "fail_to_parse_cmd",
+			request: &v1alpha1.ToolRequest{
+				Tool: "bash",
+				Cleanup: []string{
+					`-c "echo test do1`,
+				},
+			},
+			expHandleErrSubStr: "failed to parse cmd",
+		},
+		{
+			name: "fail_to_run",
+			request: &v1alpha1.ToolRequest{
+				Tool: "echo",
+				Cleanup: []string{
+					`test1 && test2`,
+				},
+			},
+			stdout: bytes.NewBuffer(nil),
+			expOutResponse: `
+echo test1 && test2
+test1`,
 		},
 		{
 			name: "invalid_tool",
@@ -212,15 +256,14 @@ test cleanup2
 				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
 			}
 			if !strings.Contains(stderr.String(), tc.expOutErr) {
-				diff := cmp.Diff(strings.TrimSpace(tc.expOutErr), strings.TrimSpace(stderr.String()))
-				t.Errorf("Process(%+v) got unexpected error output substring: %v", tc.name, diff)
+				t.Errorf("Process(%+v) error output got %q, want substring: %q", tc.name, stderr.String(), tc.expOutErr)
 			}
 			var gotOut string
 			if tc.stdout != nil {
 				gotOut = tc.stdout.String()
 			}
-			if diff := cmp.Diff(strings.TrimSpace(tc.expOutResponse), strings.TrimSpace(gotOut)); diff != "" {
-				t.Errorf("Process(%+v) got output response diff (-want, +got): %v", tc.name, diff)
+			if strings.TrimSpace(tc.expOutResponse) != strings.TrimSpace(gotOut) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, gotOut, tc.expOutResponse)
 			}
 		})
 	}
