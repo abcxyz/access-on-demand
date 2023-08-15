@@ -45,6 +45,7 @@ func TestDo(t *testing.T) {
 		foldersServer           *fakeServer
 		projectsServer          *fakeServer
 		request                 *v1alpha1.IAMRequestWrapper
+		conditionDescription    string
 		wantPolicies            []*v1alpha1.IAMResponse
 		wantErrSubstr           string
 		wantOrganizationsPolicy *iampb.Policy
@@ -116,7 +117,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/accessapproval.approver",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -134,7 +135,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/cloudkms.cryptoOperator",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -152,7 +153,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/bigquery.dataViewer",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -170,7 +171,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/accessapproval.approver",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -185,7 +186,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/cloudkms.cryptoOperator",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -200,8 +201,79 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/bigquery.dataViewer",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
+						},
+					},
+				},
+				Version: 3,
+			},
+		},
+		{
+			name: "happy_path_with_condition_description",
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			request: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: &v1alpha1.IAMRequest{
+					ResourcePolicies: []*v1alpha1.ResourcePolicy{
+						{
+							Resource: "projects/baz",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-project-user@example.com",
+									},
+									Role: "roles/bigquery.dataViewer",
+								},
+							},
+						},
+					},
+				},
+				Duration:  2 * time.Hour,
+				StartTime: now,
+			},
+			conditionDescription: "test-description",
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "projects/baz",
+					Policy: &iampb.Policy{
+						Bindings: []*iampb.Binding{
+							{
+								Members: []string{
+									"user:test-project-user@example.com",
+								},
+								Role: "roles/bigquery.dataViewer",
+								Condition: &expr.Expr{
+									Title:       defaultConditionTitle,
+									Expression:  fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
+									Description: "test-description",
+								},
+							},
+						},
+						Version: 3,
+					},
+				},
+			},
+			wantOrganizationsPolicy: &iampb.Policy{},
+			wantFoldersPolicy:       &iampb.Policy{},
+			wantProjectsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-project-user@example.com",
+						},
+						Role: "roles/bigquery.dataViewer",
+						Condition: &expr.Expr{
+							Title:       defaultConditionTitle,
+							Expression:  fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
+							Description: "test-description",
 						},
 					},
 				},
@@ -220,7 +292,7 @@ func TestDo(t *testing.T) {
 							},
 							Role: "roles/accessapproval.approver",
 							Condition: &expr.Expr{
-								Title:      ConditionTitle,
+								Title:      defaultConditionTitle,
 								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 							},
 						},
@@ -232,7 +304,7 @@ func TestDo(t *testing.T) {
 							},
 							Role: "roles/accessapproval.approver",
 							Condition: &expr.Expr{
-								Title:      ConditionTitle,
+								Title:      defaultConditionTitle,
 								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 							},
 						},
@@ -283,7 +355,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/accessapproval.approver",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -294,7 +366,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/accessapproval.approver",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -311,7 +383,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/accessapproval.approver",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -322,7 +394,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/accessapproval.approver",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -344,7 +416,7 @@ func TestDo(t *testing.T) {
 							},
 							Role: "roles/accessapproval.approver",
 							Condition: &expr.Expr{
-								Title:      ConditionTitle,
+								Title:      defaultConditionTitle,
 								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
 							},
 						},
@@ -387,7 +459,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/bigquery.dataViewer",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -404,7 +476,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/bigquery.dataViewer",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -425,7 +497,7 @@ func TestDo(t *testing.T) {
 							},
 							Role: "roles/accessapproval.approver",
 							Condition: &expr.Expr{
-								Title:      ConditionTitle,
+								Title:      defaultConditionTitle,
 								Expression: fmt.Sprintf("request.time <= timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
 							},
 						},
@@ -468,7 +540,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/accessapproval.approver",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time <= timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -478,7 +550,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/bigquery.dataViewer",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -495,7 +567,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/accessapproval.approver",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time <= timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -505,7 +577,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/bigquery.dataViewer",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -526,7 +598,7 @@ func TestDo(t *testing.T) {
 							},
 							Role: "roles/accessapproval.approver",
 							Condition: &expr.Expr{
-								Title:      ConditionTitle,
+								Title:      defaultConditionTitle,
 								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC850)),
 							},
 						},
@@ -569,7 +641,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/accessapproval.approver",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC850)),
 								},
 							},
@@ -579,7 +651,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/bigquery.dataViewer",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -596,7 +668,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/accessapproval.approver",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC850)),
 						},
 					},
@@ -606,7 +678,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/bigquery.dataViewer",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -673,7 +745,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/cloudkms.cryptoOperator",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -697,7 +769,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/cloudkms.cryptoOperator",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -724,7 +796,7 @@ func TestDo(t *testing.T) {
 							},
 							Role: "roles/accesscontextmanager.policyAdmin",
 							Condition: &expr.Expr{
-								Title:      ConditionTitle,
+								Title:      defaultConditionTitle,
 								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 							},
 						},
@@ -761,7 +833,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/accesscontextmanager.policyAdmin",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -771,7 +843,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/accessapproval.approver",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -790,7 +862,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/accesscontextmanager.policyAdmin",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -800,7 +872,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/accessapproval.approver",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -862,7 +934,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/bigquery.dataViewer",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -882,7 +954,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/bigquery.dataViewer",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -943,7 +1015,7 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/cloudkms.cryptoOperator",
 								Condition: &expr.Expr{
-									Title:      ConditionTitle,
+									Title:      defaultConditionTitle,
 									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 								},
 							},
@@ -962,7 +1034,7 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/cloudkms.cryptoOperator",
 						Condition: &expr.Expr{
-							Title:      ConditionTitle,
+							Title:      defaultConditionTitle,
 							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
 						},
 					},
@@ -988,12 +1060,20 @@ func TestDo(t *testing.T) {
 				tc.foldersServer,
 				tc.projectsServer,
 			)
+
+			opts := []Option{
+				WithRetry(retry.WithMaxRetries(0, retry.NewFibonacci(500*time.Millisecond))),
+			}
+			if tc.conditionDescription != "" {
+				opts = append(opts, WithConditionDescription(tc.conditionDescription))
+			}
+
 			h, err := NewIAMHandler(
 				ctx,
 				fakeOrganizationsClient,
 				fakeFoldersClient,
 				fakeProjectsClient,
-				WithRetry(retry.WithMaxRetries(0, retry.NewFibonacci(500*time.Millisecond))),
+				opts...,
 			)
 			if err != nil {
 				t.Fatalf("failed to create IAMHandler: %v", err)
