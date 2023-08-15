@@ -50,7 +50,7 @@ type IAMHandler struct {
 	// Optional retry backoff strategy, default is 5 attempts with fibonacci
 	// backoff that starts at 500ms.
 	retry retry.Backoff
-	// Title for IAM bindings expiration condition.
+	// Title for IAM bindings expiration condition, default is "abcxyz-aod-expiry".
 	conditionTitle string
 }
 

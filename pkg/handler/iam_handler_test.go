@@ -1058,12 +1058,20 @@ func TestDo(t *testing.T) {
 				tc.foldersServer,
 				tc.projectsServer,
 			)
+
+			opts := []Option{
+				WithRetry(retry.WithMaxRetries(0, retry.NewFibonacci(500*time.Millisecond))),
+			}
+			if tc.customTitle != "" {
+				opts = append(opts, WithCustomConditionTitle(tc.customTitle))
+			}
+
 			h, err := NewIAMHandler(
 				ctx,
 				fakeOrganizationsClient,
 				fakeFoldersClient,
 				fakeProjectsClient,
-				WithRetry(retry.WithMaxRetries(0, retry.NewFibonacci(500*time.Millisecond))),
+				opts...,
 			)
 			if err != nil {
 				t.Fatalf("failed to create IAMHandler: %v", err)
