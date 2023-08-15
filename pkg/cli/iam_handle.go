@@ -47,6 +47,9 @@ type IAMHandleCommand struct {
 
 	flagVerbose bool
 
+	// flagCustomConditionTitle is required for integration test.
+	flagCustomConditionTitle string
+
 	// testHandler is used for testing only.
 	testHandler iamHandler
 }
@@ -104,6 +107,14 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagVerbose,
 		Default: false,
 		Usage:   `Turn on verbose mode to print updated IAM policies. Note that it may contain sensitive information`,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "custom-condition-title",
+		Target:  &c.flagCustomConditionTitle,
+		Hidden:  true,
+		Example: "example-title",
+		Usage:   `The custom title for the aod expiry condition, AOD will use a default title if not provided.`,
 	})
 
 	return set
@@ -169,12 +180,18 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 		}
 		defer projectsClient.Close()
 
+		var opt handler.Option
+		if c.flagCustomConditionTitle != "" {
+			opt = handler.WithCustomConditionTitle(c.flagCustomConditionTitle)
+		}
+
 		// Create IAMHandler with the clients.
 		h, err = handler.NewIAMHandler(
 			ctx,
 			organizationsClient,
 			foldersClient,
 			projectsClient,
+			opt,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create IAM handler: %w", err)

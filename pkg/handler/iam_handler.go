@@ -33,8 +33,8 @@ import (
 )
 
 var (
-	// ConditionTitle of IAM bindings added by AOD.
-	ConditionTitle = "abcxyz-aod-expiry"
+	// defaultConditionTitle of IAM bindings added by AOD.
+	defaultConditionTitle = "abcxyz-aod-expiry"
 	// expirationExpression of IAM binding condition added by AOD.
 	expirationExpression = "request.time < timestamp('%s')"
 	// expirationRegex matching expirationExpression.
@@ -50,6 +50,8 @@ type IAMHandler struct {
 	// Optional retry backoff strategy, default is 5 attempts with fibonacci
 	// backoff that starts at 500ms.
 	retry retry.Backoff
+	// Title for IAM bindings expiration condition.
+	conditionTitle string
 }
 
 // IAMClient is the interface to get and set IAM policies for GCP organizations,
@@ -70,6 +72,15 @@ func WithRetry(b retry.Backoff) Option {
 	}
 }
 
+// WithCustomConditionTitle provides a custom condition title for IAM bindings
+// expiration condition.
+func WithCustomConditionTitle(title string) Option {
+	return func(p *IAMHandler) (*IAMHandler, error) {
+		p.conditionTitle = title
+		return p, nil
+	}
+}
+
 // NewIAMHandler creates a new IAMHandler with provided clients and options.
 func NewIAMHandler(ctx context.Context, organizationsClient, foldersClient, projectsClient IAMClient, opts ...Option) (*IAMHandler, error) {
 	h := &IAMHandler{}
@@ -86,6 +97,10 @@ func NewIAMHandler(ctx context.Context, organizationsClient, foldersClient, proj
 
 	if h.retry == nil {
 		h.retry = retry.WithMaxRetries(5, retry.NewFibonacci(500*time.Millisecond))
+	}
+
+	if h.conditionTitle == "" {
+		h.conditionTitle = defaultConditionTitle
 	}
 	return h, nil
 }
@@ -144,7 +159,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 		// bindings, however any errors encounterred during removal will be ignored
 		// and policy update for the request will continue. Removal errors should be
 		// handled separately such as in a global IAM cleanup.
-		updatePolicy(ctx, cp, p.Bindings, expiry)
+		h.updatePolicy(ctx, cp, p.Bindings, expiry)
 
 		// Set the new policy.
 		setIAMPolicyRequest := &iampb.SetIamPolicyRequest{
@@ -166,7 +181,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 }
 
 // Remove expired bindings and add or update new bindings with expiration condition.
-func updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
+func (h *IAMHandler) updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
 	logger := logging.FromContext(ctx)
 	// Convert new bindings to a role to unique bindings map.
 	bsMap := toBindingsMap(bs)
@@ -174,7 +189,7 @@ func updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, 
 	var result []*iampb.Binding
 	for _, cb := range p.Bindings {
 		// Skip non-AOD bindings.
-		if cb.Condition == nil || cb.Condition.Title != ConditionTitle {
+		if cb.Condition == nil || cb.Condition.Title != h.conditionTitle {
 			result = append(result, cb)
 			continue
 		}
@@ -214,7 +229,7 @@ func updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, 
 	for r, ms := range bsMap {
 		newBinding := &iampb.Binding{
 			Condition: &expr.Expr{
-				Title:      ConditionTitle,
+				Title:      h.conditionTitle,
 				Expression: fmt.Sprintf(expirationExpression, t),
 			},
 			Role: r,
