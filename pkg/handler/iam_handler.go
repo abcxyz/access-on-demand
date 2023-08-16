@@ -50,8 +50,8 @@ type IAMHandler struct {
 	// Optional retry backoff strategy, default is 5 attempts with fibonacci
 	// backoff that starts at 500ms.
 	retry retry.Backoff
-	// Optional description for IAM bindings expiration condition.
-	conditionDescription string
+	// Title for IAM bindings expiration condition, default is "abcxyz-aod-expiry".
+	conditionTitle string
 }
 
 // IAMClient is the interface to get and set IAM policies for GCP organizations,
@@ -72,11 +72,11 @@ func WithRetry(b retry.Backoff) Option {
 	}
 }
 
-// WithConditionDescription provides a condition description for IAM bindings
+// WithCustomConditionTitle provides a custom condition title for IAM bindings
 // expiration condition.
-func WithConditionDescription(title string) Option {
+func WithCustomConditionTitle(title string) Option {
 	return func(p *IAMHandler) (*IAMHandler, error) {
-		p.conditionDescription = title
+		p.conditionTitle = title
 		return p, nil
 	}
 }
@@ -98,6 +98,11 @@ func NewIAMHandler(ctx context.Context, organizationsClient, foldersClient, proj
 	if h.retry == nil {
 		h.retry = retry.WithMaxRetries(5, retry.NewFibonacci(500*time.Millisecond))
 	}
+
+	if h.conditionTitle == "" {
+		h.conditionTitle = defaultConditionTitle
+	}
+
 	return h, nil
 }
 
@@ -185,7 +190,7 @@ func (h *IAMHandler) updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1
 	var result []*iampb.Binding
 	for _, cb := range p.Bindings {
 		// Skip non-AOD bindings.
-		if cb.Condition == nil || cb.Condition.Title != defaultConditionTitle {
+		if cb.Condition == nil || cb.Condition.Title != h.conditionTitle {
 			result = append(result, cb)
 			continue
 		}
@@ -225,9 +230,8 @@ func (h *IAMHandler) updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1
 	for r, ms := range bsMap {
 		newBinding := &iampb.Binding{
 			Condition: &expr.Expr{
-				Title:       defaultConditionTitle,
-				Expression:  fmt.Sprintf(expirationExpression, t),
-				Description: h.conditionDescription,
+				Title:      h.conditionTitle,
+				Expression: fmt.Sprintf(expirationExpression, t),
 			},
 			Role: r,
 		}

@@ -47,8 +47,9 @@ type IAMHandleCommand struct {
 
 	flagVerbose bool
 
-	// flagConditionDescription is required for integration test.
-	flagConditionDescription string
+	// Optional custom condition title for IAM bindings expiration, required for
+	// integration test.
+	flagCustomConditionTitle string
 
 	// testHandler is used for testing only.
 	testHandler iamHandler
@@ -110,11 +111,11 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:    "condition-description",
-		Target:  &c.flagConditionDescription,
+		Name:    "custom-condition-title",
+		Target:  &c.flagCustomConditionTitle,
 		Hidden:  true,
-		Example: "example-description",
-		Usage:   `The description for the aod expiry condition.`,
+		Example: "foo-aod-expiry",
+		Usage:   `The custom title for the aod expiry condition.`,
 	})
 
 	return set
@@ -181,8 +182,8 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 		defer projectsClient.Close()
 
 		var opts []handler.Option
-		if c.flagConditionDescription != "" {
-			opts = append(opts, handler.WithConditionDescription(c.flagConditionDescription))
+		if c.flagCustomConditionTitle != "" {
+			opts = append(opts, handler.WithCustomConditionTitle(c.flagCustomConditionTitle))
 		}
 
 		// Create IAMHandler with the clients.

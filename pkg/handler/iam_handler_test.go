@@ -45,7 +45,7 @@ func TestDo(t *testing.T) {
 		foldersServer           *fakeServer
 		projectsServer          *fakeServer
 		request                 *v1alpha1.IAMRequestWrapper
-		conditionDescription    string
+		conditionTitle          string
 		wantPolicies            []*v1alpha1.IAMResponse
 		wantErrSubstr           string
 		wantOrganizationsPolicy *iampb.Policy
@@ -210,7 +210,7 @@ func TestDo(t *testing.T) {
 			},
 		},
 		{
-			name: "happy_path_with_condition_description",
+			name: "happy_path_with_custom_condition_title",
 			organizationsServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
@@ -239,7 +239,7 @@ func TestDo(t *testing.T) {
 				Duration:  2 * time.Hour,
 				StartTime: now,
 			},
-			conditionDescription: "test-description",
+			conditionTitle: "test-aod-expiry-title",
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
 					Resource: "projects/baz",
@@ -251,9 +251,8 @@ func TestDo(t *testing.T) {
 								},
 								Role: "roles/bigquery.dataViewer",
 								Condition: &expr.Expr{
-									Title:       defaultConditionTitle,
-									Expression:  fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
-									Description: "test-description",
+									Title:      "test-aod-expiry-title",
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 								},
 							},
 						},
@@ -271,9 +270,8 @@ func TestDo(t *testing.T) {
 						},
 						Role: "roles/bigquery.dataViewer",
 						Condition: &expr.Expr{
-							Title:       defaultConditionTitle,
-							Expression:  fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
-							Description: "test-description",
+							Title:      "test-aod-expiry-title",
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(2*time.Hour).Format(time.RFC3339)),
 						},
 					},
 				},
@@ -1064,8 +1062,8 @@ func TestDo(t *testing.T) {
 			opts := []Option{
 				WithRetry(retry.WithMaxRetries(0, retry.NewFibonacci(500*time.Millisecond))),
 			}
-			if tc.conditionDescription != "" {
-				opts = append(opts, WithConditionDescription(tc.conditionDescription))
+			if tc.conditionTitle != "" {
+				opts = append(opts, WithCustomConditionTitle(tc.conditionTitle))
 			}
 
 			h, err := NewIAMHandler(
