@@ -201,7 +201,7 @@ func (h *IAMHandler) updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1
 			// Continue policy update when there is error checking the AOD expiry.
 			// Cleaning up expired AOD bindings here is best effort.
 			// We rely on a separate process to clean up AOD bindings.
-			logger.Warnw("failed to check expiry", "error", err)
+			logger.WarnContext(ctx, "failed to check expiry", "error", err)
 		}
 		if expired {
 			continue
