@@ -26,6 +26,7 @@ import (
 )
 
 func main() {
+    # comment so that we can test PR functionality
 	ctx, done := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM)
 	defer done()
