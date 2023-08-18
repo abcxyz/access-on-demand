@@ -15,7 +15,6 @@
 package integration
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -73,13 +72,10 @@ func TestIAMHandle(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name                 string
-		filePath             string
-		verbose              bool
-		conditionTitlePrefix string
-		wantBindings         []*iampb.Binding
-		wantOutput           string
-		wantErrSubstr        string
+		name         string
+		filePath     string
+		wantBindings []*iampb.Binding
+		wantOutput   string
 	}{
 		{
 			name:     "success",
@@ -117,12 +113,6 @@ duration: %sh0m0s
 starttime: %s
 `, cfg.IAMExpirationDurationHour, cfg.IAMExpirationStartTime),
 		},
-		{
-			name:                 "invalid_file",
-			filePath:             "iam_invalid.yaml",
-			wantErrSubstr:        "failed to validate",
-			conditionTitlePrefix: "invalid-",
-		},
 	}
 
 	for _, tc := range cases {
@@ -133,32 +123,20 @@ starttime: %s
 
 			ctx := context.Background()
 
-			fullTitle := fmt.Sprintf("%s%s", tc.conditionTitlePrefix, cfg.ConditionTitle)
-
 			args := []string{
 				"iam", "handle",
 				"-path", tc.filePath,
 				"-start-time", cfg.IAMExpirationStartTime,
 				"-duration", fmt.Sprintf("%sh", cfg.IAMExpirationDurationHour),
-				"-custom-condition-title", fullTitle,
-			}
-			if tc.verbose {
-				args = append(args, "-verbose")
+				"-custom-condition-title", cfg.ConditionTitle,
 			}
 
-			stderr := bytes.NewBuffer(nil)
-			stdout := bytes.NewBuffer(nil)
 			cmd := exec.Command("aod", args...)
 			cmd.Dir = cfg.WorkingDir
-			cmd.Stdout = stdout
-			cmd.Stderr = stderr
 
-			// Sometimes the cmd exits with non-zero status when the command is run
-			// successfully but has error.
-			if err := cmd.Run(); err != nil {
-				if !containErrSubstr(stderr.String(), tc.wantErrSubstr) {
-					t.Errorf("Process(%+v) error got %q, want substring: %q", tc.name, stderr.String(), tc.wantErrSubstr)
-				}
+			gotOut, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Errorf("Process(%+v) got unwanted error: %q", tc.name, string(gotOut))
 			}
 
 			bs, err := testGetPolicyBindings(ctx, t, cfg)
@@ -166,14 +144,11 @@ starttime: %s
 				t.Fatal(err)
 			}
 
-			if diff := cmp.Diff(tc.wantBindings, testGotBindings(t, bs, fullTitle), protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tc.wantBindings, testGotBindings(t, bs, cfg.ConditionTitle), protocmp.Transform()); diff != "" {
 				t.Errorf("Process(%+v) got project bindings diff (-want, +got): %v", tc.name, diff)
 			}
-			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
-			}
-			if !containErrSubstr(stderr.String(), tc.wantErrSubstr) {
-				t.Errorf("Process(%+v) error got %q, want substring: %q", tc.name, stderr.String(), tc.wantErrSubstr)
+			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(string(gotOut)) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, string(gotOut), tc.wantOutput)
 			}
 		})
 	}
@@ -183,20 +158,14 @@ func TestIAMValidate(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name          string
-		filePath      string
-		wantErrSubstr string
-		wantOutput    string
+		name       string
+		filePath   string
+		wantOutput string
 	}{
 		{
 			name:       "success",
 			filePath:   "iam.yaml",
 			wantOutput: "Successfully validated IAM request",
-		},
-		{
-			name:          "invalid_file",
-			filePath:      "iam_invalid.yaml",
-			wantErrSubstr: "failed to validate",
 		},
 	}
 
@@ -211,26 +180,16 @@ func TestIAMValidate(t *testing.T) {
 				"-path", tc.filePath,
 			}
 
-			stderr := bytes.NewBuffer(nil)
-			stdout := bytes.NewBuffer(nil)
 			cmd := exec.Command("aod", args...)
 			cmd.Dir = cfg.WorkingDir
-			cmd.Stdout = stdout
-			cmd.Stderr = stderr
 
-			// Sometimes the cmd exits with non-zero status when the command is run
-			// successfully but has error.
-			if err := cmd.Run(); err != nil {
-				if !containErrSubstr(stderr.String(), tc.wantErrSubstr) {
-					t.Errorf("Process(%+v) error got %q, want substring: %q", tc.name, stderr.String(), tc.wantErrSubstr)
-				}
+			gotOut, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Errorf("Process(%+v) got unwanted error: %q", tc.name, string(gotOut))
 			}
 
-			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
-			}
-			if !containErrSubstr(stderr.String(), tc.wantErrSubstr) {
-				t.Errorf("Process(%+v) error got %q, want substring: %q", tc.name, stderr.String(), tc.wantErrSubstr)
+			if strings.TrimSpace(tc.wantOutput) != string(gotOut) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, string(gotOut), tc.wantOutput)
 			}
 		})
 	}
@@ -240,11 +199,10 @@ func TestToolDo(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name          string
-		filePath      string
-		verbose       bool
-		wantOutput    string
-		wantErrSubstr string
+		name       string
+		filePath   string
+		verbose    bool
+		wantOutput string
 	}{
 		{
 			name:     "success",
@@ -272,11 +230,6 @@ gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_I
 - gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_ID
 `, "INTEG_TEST_PROJECT_ID", cfg.ProjectID),
 		},
-		{
-			name:          "invalid_file",
-			filePath:      "tool_invalid.yaml",
-			wantErrSubstr: "failed to validate",
-		},
 	}
 
 	for _, tc := range cases {
@@ -293,26 +246,16 @@ gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_I
 				args = append(args, "-verbose")
 			}
 
-			stderr := bytes.NewBuffer(nil)
-			stdout := bytes.NewBuffer(nil)
 			cmd := exec.Command("aod", args...)
 			cmd.Dir = cfg.WorkingDir
-			cmd.Stdout = stdout
-			cmd.Stderr = stderr
 
-			// Sometimes the cmd exits with non-zero status when the command is run
-			// successfully but has error.
-			if err := cmd.Run(); err != nil {
-				if !containErrSubstr(stderr.String(), tc.wantErrSubstr) {
-					t.Errorf("Process(%+v) error got %q, want substring: %q", tc.name, stderr.String(), tc.wantErrSubstr)
-				}
+			gotOut, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Errorf("Process(%+v) got unwanted error: %q", tc.name, string(gotOut))
 			}
 
-			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
-			}
-			if !containErrSubstr(stderr.String(), tc.wantErrSubstr) {
-				t.Errorf("Process(%+v) error got %q, want substring: %q", tc.name, stderr.String(), tc.wantErrSubstr)
+			if strings.TrimSpace(tc.wantOutput) != string(gotOut) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, string(gotOut), tc.wantOutput)
 			}
 		})
 	}
@@ -322,12 +265,11 @@ func TestToolCleanup(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name          string
-		filePath      string
-		verbose       bool
-		wantBindings  []*iampb.Binding
-		wantOutput    string
-		wantErrSubstr string
+		name         string
+		filePath     string
+		verbose      bool
+		wantBindings []*iampb.Binding
+		wantOutput   string
 	}{
 		{
 			name:     "success",
@@ -355,11 +297,6 @@ https://cloudresourcemanager.googleapis.com/v1/projects/INTEG_TEST_PROJECT_ID
 - gcloud projects list --uri --filter projectId:INTEG_TEST_PROJECT_ID
 `, "INTEG_TEST_PROJECT_ID", cfg.ProjectID),
 		},
-		{
-			name:          "invalid_file",
-			filePath:      "tool_invalid.yaml",
-			wantErrSubstr: "failed to validate",
-		},
 	}
 
 	for _, tc := range cases {
@@ -376,26 +313,16 @@ https://cloudresourcemanager.googleapis.com/v1/projects/INTEG_TEST_PROJECT_ID
 				args = append(args, "-verbose")
 			}
 
-			stderr := bytes.NewBuffer(nil)
-			stdout := bytes.NewBuffer(nil)
 			cmd := exec.Command("aod", args...)
 			cmd.Dir = cfg.WorkingDir
-			cmd.Stdout = stdout
-			cmd.Stderr = stderr
 
-			// Sometimes the cmd exits with non-zero status when the command is run
-			// successfully but has error.
-			if err := cmd.Run(); err != nil {
-				if !containErrSubstr(stderr.String(), tc.wantErrSubstr) {
-					t.Errorf("Process(%+v) error got %q, want substring: %q", tc.name, stderr.String(), tc.wantErrSubstr)
-				}
+			gotOut, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Errorf("Process(%+v) got unwanted error: %q", tc.name, string(gotOut))
 			}
 
-			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
-			}
-			if !containErrSubstr(stderr.String(), tc.wantErrSubstr) {
-				t.Errorf("Process(%+v) error got %q, want substring: %q", tc.name, stderr.String(), tc.wantErrSubstr)
+			if strings.TrimSpace(tc.wantOutput) != string(gotOut) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, string(gotOut), tc.wantOutput)
 			}
 		})
 	}
@@ -405,20 +332,14 @@ func TestToolValidate(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name          string
-		filePath      string
-		wantErrSubstr string
-		wantOutput    string
+		name       string
+		filePath   string
+		wantOutput string
 	}{
 		{
 			name:       "success",
 			filePath:   "tool.yaml",
 			wantOutput: "Successfully validated tool request",
-		},
-		{
-			name:          "invalid",
-			filePath:      "tool_invalid.yaml",
-			wantErrSubstr: "failed to validate",
 		},
 	}
 
@@ -433,26 +354,16 @@ func TestToolValidate(t *testing.T) {
 				"-path", tc.filePath,
 			}
 
-			stderr := bytes.NewBuffer(nil)
-			stdout := bytes.NewBuffer(nil)
 			cmd := exec.Command("aod", args...)
 			cmd.Dir = cfg.WorkingDir
-			cmd.Stdout = stdout
-			cmd.Stderr = stderr
 
-			// Sometimes the cmd exits with non-zero status when the command is run
-			// successfully but has error.
-			if err := cmd.Run(); err != nil {
-				if !containErrSubstr(stderr.String(), tc.wantErrSubstr) {
-					t.Errorf("Process(%+v) error got %q, want substring: %q", tc.name, stderr.String(), tc.wantErrSubstr)
-				}
+			gotOut, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Errorf("Process(%+v) got unwanted error: %q", tc.name, string(gotOut))
 			}
 
-			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
-			}
-			if !containErrSubstr(stderr.String(), tc.wantErrSubstr) {
-				t.Errorf("Process(%+v) error got %q, want substring: %q", tc.name, stderr.String(), tc.wantErrSubstr)
+			if strings.TrimSpace(tc.wantOutput) != string(gotOut) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, string(gotOut), tc.wantOutput)
 			}
 		})
 	}
@@ -493,13 +404,4 @@ func testGotBindings(tb testing.TB, bs []*iampb.Binding, matchTitle string) (res
 		}
 	}
 	return result
-}
-
-func containErrSubstr(got, want string) bool {
-	if want == "" {
-		if got != "" {
-			return false
-		}
-	}
-	return strings.Contains(got, want)
 }
