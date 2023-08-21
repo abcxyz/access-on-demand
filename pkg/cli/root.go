@@ -81,6 +81,6 @@ func PipeAndRun(ctx context.Context, args []string) (stdin, stdout, stderr *byte
 	c.SetStdout(stdout)
 	c.SetStderr(stderr)
 
-	err = c.Run(ctx, args) //nolint:wrapcheck // Want passthrough
+	err = c.Run(ctx, args)
 	return
 }
