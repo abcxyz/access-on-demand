@@ -19,11 +19,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 
 	"cloud.google.com/go/iam/apiv1/iampb"
+	"github.com/abcxyz/access-on-demand/pkg/cli"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/sethvargo/go-retry"
 	"google.golang.org/genproto/googleapis/type/expr"
@@ -79,7 +80,7 @@ func TestIAMHandle(t *testing.T) {
 	}{
 		{
 			name:     "success",
-			filePath: "iam.yaml",
+			filePath: fmt.Sprintf("../../%s/iam.yaml", cfg.WorkingDir),
 			wantBindings: []*iampb.Binding{
 				{
 					Role:    "roles/actions.Viewer",
@@ -131,12 +132,9 @@ starttime: %s
 				"-custom-condition-title", cfg.ConditionTitle,
 			}
 
-			cmd := exec.Command("aod", args...)
-			cmd.Dir = cfg.WorkingDir
-
-			gotOut, err := cmd.CombinedOutput()
+			_, stdout, stderr, err := cli.PipeAndRun(ctx, args)
 			if err != nil {
-				t.Errorf("Process(%+v) got unwanted error: %q", tc.name, string(gotOut))
+				t.Fatalf("Process(%+v) failed to run command %v", tc.name, err)
 			}
 
 			bs, err := testGetPolicyBindings(ctx, t, cfg)
@@ -147,8 +145,11 @@ starttime: %s
 			if diff := cmp.Diff(tc.wantBindings, testGotBindings(t, bs, cfg.ConditionTitle), protocmp.Transform()); diff != "" {
 				t.Errorf("Process(%+v) got project bindings diff (-want, +got): %v", tc.name, diff)
 			}
-			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(string(gotOut)) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, string(gotOut), tc.wantOutput)
+			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
+			}
+			if stderr.String() != "" {
+				t.Errorf("Process(%+v) got unexpected error: %q)", tc.name, stderr.String())
 			}
 		})
 	}
@@ -164,7 +165,7 @@ func TestIAMValidate(t *testing.T) {
 	}{
 		{
 			name:       "success",
-			filePath:   "iam.yaml",
+			filePath:   fmt.Sprintf("../../%s/iam.yaml", cfg.WorkingDir),
 			wantOutput: "Successfully validated IAM request",
 		},
 	}
@@ -175,21 +176,23 @@ func TestIAMValidate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			ctx := context.Background()
+
 			args := []string{
 				"iam", "validate",
 				"-path", tc.filePath,
 			}
 
-			cmd := exec.Command("aod", args...)
-			cmd.Dir = cfg.WorkingDir
-
-			gotOut, err := cmd.CombinedOutput()
+			_, stdout, stderr, err := cli.PipeAndRun(ctx, args)
 			if err != nil {
-				t.Errorf("Process(%+v) got unwanted error: %q", tc.name, string(gotOut))
+				t.Fatalf("Process(%+v) failed to run command %v", tc.name, err)
 			}
 
-			if strings.TrimSpace(tc.wantOutput) != string(gotOut) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, string(gotOut), tc.wantOutput)
+			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
+			}
+			if stderr.String() != "" {
+				t.Errorf("Process(%+v) got unexpected error: %q)", tc.name, stderr.String())
 			}
 		})
 	}
@@ -206,7 +209,7 @@ func TestToolDo(t *testing.T) {
 	}{
 		{
 			name:     "success",
-			filePath: "tool.yaml",
+			filePath: fmt.Sprintf("../../%s/tool.yaml", cfg.WorkingDir),
 			wantOutput: strings.ReplaceAll(`
 ------Successfully Completed Commands------
 - gcloud projects list --uri --filter projectId:INTEG_TEST_PROJECT_ID
@@ -215,7 +218,7 @@ func TestToolDo(t *testing.T) {
 		},
 		{
 			name:     "success_verbose",
-			filePath: "tool.yaml",
+			filePath: fmt.Sprintf("../../%s/tool.yaml", cfg.WorkingDir),
 			verbose:  true,
 			wantOutput: strings.ReplaceAll(`------Tool Commands Output------
 gcloud projects list --uri --filter projectId:INTEG_TEST_PROJECT_ID
@@ -238,6 +241,8 @@ gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_I
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			ctx := context.Background()
+
 			args := []string{
 				"tool", "do",
 				"-path", tc.filePath,
@@ -246,16 +251,16 @@ gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_I
 				args = append(args, "-verbose")
 			}
 
-			cmd := exec.Command("aod", args...)
-			cmd.Dir = cfg.WorkingDir
-
-			gotOut, err := cmd.CombinedOutput()
+			_, stdout, stderr, err := cli.PipeAndRun(ctx, args)
 			if err != nil {
-				t.Errorf("Process(%+v) got unwanted error: %q", tc.name, string(gotOut))
+				t.Fatalf("Process(%+v) failed to run command %v", tc.name, err)
 			}
 
-			if strings.TrimSpace(tc.wantOutput) != string(gotOut) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, string(gotOut), tc.wantOutput)
+			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
+			}
+			if stderr.String() != "" {
+				t.Errorf("Process(%+v) got unexpected error: %q)", tc.name, stderr.String())
 			}
 		})
 	}
@@ -273,7 +278,7 @@ func TestToolCleanup(t *testing.T) {
 	}{
 		{
 			name:     "success",
-			filePath: "tool.yaml",
+			filePath: fmt.Sprintf("../../%s/tool.yaml", cfg.WorkingDir),
 			wantOutput: strings.ReplaceAll(`
 ------Successfully Completed Commands------
 - gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_ID
@@ -282,7 +287,7 @@ func TestToolCleanup(t *testing.T) {
 		},
 		{
 			name:     "success_verbose",
-			filePath: "tool.yaml",
+			filePath: fmt.Sprintf("../../%s/tool.yaml", cfg.WorkingDir),
 			verbose:  true,
 			wantOutput: strings.ReplaceAll(`------Tool Commands Output------
 gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_ID
@@ -305,6 +310,8 @@ https://cloudresourcemanager.googleapis.com/v1/projects/INTEG_TEST_PROJECT_ID
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			ctx := context.Background()
+
 			args := []string{
 				"tool", "cleanup",
 				"-path", tc.filePath,
@@ -313,16 +320,16 @@ https://cloudresourcemanager.googleapis.com/v1/projects/INTEG_TEST_PROJECT_ID
 				args = append(args, "-verbose")
 			}
 
-			cmd := exec.Command("aod", args...)
-			cmd.Dir = cfg.WorkingDir
-
-			gotOut, err := cmd.CombinedOutput()
+			_, stdout, stderr, err := cli.PipeAndRun(ctx, args)
 			if err != nil {
-				t.Errorf("Process(%+v) got unwanted error: %q", tc.name, string(gotOut))
+				t.Fatalf("Process(%+v) failed to run command %v", tc.name, err)
 			}
 
-			if strings.TrimSpace(tc.wantOutput) != string(gotOut) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, string(gotOut), tc.wantOutput)
+			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
+			}
+			if stderr.String() != "" {
+				t.Errorf("Process(%+v) got unexpected error: %q)", tc.name, stderr.String())
 			}
 		})
 	}
@@ -338,7 +345,7 @@ func TestToolValidate(t *testing.T) {
 	}{
 		{
 			name:       "success",
-			filePath:   "tool.yaml",
+			filePath:   fmt.Sprintf("../../%s/tool.yaml", cfg.WorkingDir),
 			wantOutput: "Successfully validated tool request",
 		},
 	}
@@ -349,21 +356,23 @@ func TestToolValidate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			ctx := context.Background()
+
 			args := []string{
 				"tool", "validate",
 				"-path", tc.filePath,
 			}
 
-			cmd := exec.Command("aod", args...)
-			cmd.Dir = cfg.WorkingDir
-
-			gotOut, err := cmd.CombinedOutput()
+			_, stdout, stderr, err := cli.PipeAndRun(ctx, args)
 			if err != nil {
-				t.Errorf("Process(%+v) got unwanted error: %q", tc.name, string(gotOut))
+				t.Fatalf("Process(%+v) failed to run command %v", tc.name, err)
 			}
 
-			if strings.TrimSpace(tc.wantOutput) != string(gotOut) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, string(gotOut), tc.wantOutput)
+			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
+			}
+			if stderr.String() != "" {
+				t.Errorf("Process(%+v) got unexpected error: %q)", tc.name, stderr.String())
 			}
 		})
 	}
