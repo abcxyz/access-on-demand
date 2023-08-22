@@ -382,7 +382,7 @@ func testAddedPolicyBindings(ctx context.Context, tb testing.TB, cfg *config) (r
 	return result
 }
 
-func testWriteDataToFile(tb testing.TB, data string, fileName string) (filePath string) {
+func testWriteDataToFile(tb testing.TB, data, fileName string) (filePath string) {
 	tb.Helper()
 
 	filePath = filepath.Join(tb.TempDir(), fileName)
