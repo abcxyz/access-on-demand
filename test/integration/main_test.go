@@ -12,19 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// integration package that tests the lumberctl root command.
 package integration
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/iam/apiv1/iampb"
 	"github.com/abcxyz/access-on-demand/pkg/cli"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/sethvargo/go-retry"
 	"google.golang.org/genproto/googleapis/type/expr"
@@ -33,9 +36,32 @@ import (
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
 
+const (
+	iamReqDataTmpl = `
+policies:
+  - resource: 'projects/%s'
+    bindings:
+      - members:
+          - '%s'
+        role: 'roles/actions.Viewer'
+      - members:
+          - '%s'
+        role: 'roles/ml.viewer'
+`
+	toolReqData = `
+do:
+  - 'projects list --uri --sort-by=projectId --limit=1'
+  - 'projects list --format json --uri --sort-by=projectId --limit=1'
+cleanup:
+  - 'projects list --format json --uri --sort-by=projectId --limit=1'
+  - 'projects list --uri --sort-by=projectId --limit=1'
+`
+)
+
 var (
 	cfg           *config
 	projectClient *resourcemanager.ProjectsClient
+	iamReqData    string
 )
 
 func TestMain(m *testing.M) {
@@ -48,19 +74,21 @@ func TestMain(m *testing.M) {
 			return 0
 		}
 
-		// set up global test config.
+		// Set up global test config.
 		c, err := newTestConfig(ctx)
 		if err != nil {
 			log.Printf("Failed to parse integration test config: %v", err)
-			return 2
+			return 1
 		}
 		cfg = c
+
+		iamReqData = fmt.Sprintf(iamReqDataTmpl, cfg.ProjectID, cfg.IAMUser, cfg.IAMUser)
 
 		// Set up global resource manager client.
 		pc, err := resourcemanager.NewProjectsClient(ctx)
 		if err != nil {
 			log.Printf("failed to create projects client: %v", err)
-			return 2
+			return 1
 		}
 		defer pc.Close()
 		projectClient = pc
@@ -72,166 +100,129 @@ func TestMain(m *testing.M) {
 func TestIAMHandle(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
-		name         string
-		filePath     string
-		wantBindings []*iampb.Binding
-		wantOutput   string
-	}{
+	ctx := context.Background()
+	filePath := testWriteDataToFile(t, iamReqData, "iam.yaml")
+
+	now := time.Now().UTC().Round(time.Second)
+	d := 3 * time.Hour
+
+	wantBindings := []*iampb.Binding{
 		{
-			name:     "success",
-			filePath: fmt.Sprintf("../../%s/iam.yaml", cfg.WorkingDir),
-			wantBindings: []*iampb.Binding{
-				{
-					Role:    "roles/actions.Viewer",
-					Members: []string{"user:aod-test-bot@tycho.joonix.net"},
-					Condition: &expr.Expr{
-						Title:      cfg.ConditionTitle,
-						Expression: fmt.Sprintf("request.time < timestamp('%s')", cfg.IAMExpiration),
-					},
-				},
-				{
-					Role:    "roles/ml.viewer",
-					Members: []string{"user:aod-test-bot@tycho.joonix.net"},
-					Condition: &expr.Expr{
-						Title:      cfg.ConditionTitle,
-						Expression: fmt.Sprintf("request.time < timestamp('%s')", cfg.IAMExpiration),
-					},
-				},
+			Role:    "roles/actions.Viewer",
+			Members: []string{cfg.IAMUser},
+			Condition: &expr.Expr{
+				Title:      cfg.ConditionTitle,
+				Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(d).Format(time.RFC3339)),
 			},
-			wantOutput: fmt.Sprintf(`------Successfully Handled IAM Request------
+		},
+		{
+			Role:    "roles/ml.viewer",
+			Members: []string{cfg.IAMUser},
+			Condition: &expr.Expr{
+				Title:      cfg.ConditionTitle,
+				Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(d).Format(time.RFC3339)),
+			},
+		},
+	}
+	wantOutput := fmt.Sprintf(`------Successfully Handled IAM Request------
 iamrequest:
   policies:
     - resource: projects/access-on-demand-i-12af76
       bindings:
         - members:
-            - user:aod-test-bot@tycho.joonix.net
+            - %s
           role: roles/actions.Viewer
         - members:
-            - user:aod-test-bot@tycho.joonix.net
+            - %s
           role: roles/ml.viewer
-duration: %sh0m0s
+duration: %s
 starttime: %s
-`, cfg.IAMExpirationDurationHour, cfg.IAMExpirationStartTime),
-		},
+`, cfg.IAMUser, cfg.IAMUser, d.String(), now)
+
+	args := []string{
+		"iam", "handle",
+		"-path", filePath,
+		"-start-time", now.Format(time.RFC3339),
+		"-duration", d.String(),
+		"-custom-condition-title", cfg.ConditionTitle,
 	}
 
-	for _, tc := range cases {
-		tc := tc
+	// Cleanup the IAM policy again in case testPipeAndRun failed and ended
+	// the test.
+	t.Cleanup(func() {
+		testAddedPolicyBindings(ctx, t, cfg)
+	})
 
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+	_, stdout, stderr := testPipeAndRun(ctx, t, args)
 
-			ctx := context.Background()
+	bs := testAddedPolicyBindings(ctx, t, cfg)
 
-			args := []string{
-				"iam", "handle",
-				"-path", tc.filePath,
-				"-start-time", cfg.IAMExpirationStartTime,
-				"-duration", fmt.Sprintf("%sh", cfg.IAMExpirationDurationHour),
-				"-custom-condition-title", cfg.ConditionTitle,
-			}
-
-			_, stdout, stderr, err := cli.PipeAndRun(ctx, args)
-			if err != nil {
-				t.Fatalf("Process(%+v) failed to run command %v", tc.name, err)
-			}
-
-			bs, err := testGetPolicyBindings(ctx, t, cfg)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if diff := cmp.Diff(tc.wantBindings, testGotBindings(t, bs, cfg.ConditionTitle), protocmp.Transform()); diff != "" {
-				t.Errorf("Process(%+v) got project bindings diff (-want, +got): %v", tc.name, diff)
-			}
-			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
-			}
-			if stderr.String() != "" {
-				t.Errorf("Process(%+v) got unexpected error: %q)", tc.name, stderr.String())
-			}
-		})
+	if diff := cmp.Diff(wantBindings, bs, protocmp.Transform()); diff != "" {
+		t.Errorf("Got project bindings diff (-want, +got): %v", diff)
+	}
+	if strings.TrimSpace(wantOutput) != strings.TrimSpace(stdout.String()) {
+		t.Errorf("Output response got %q, want %q)", stdout.String(), wantOutput)
+	}
+	if stderr.String() != "" {
+		t.Errorf("Got unexpected error: %q)", stderr.String())
 	}
 }
 
 func TestIAMValidate(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
-		name       string
-		filePath   string
-		wantOutput string
-	}{
-		{
-			name:       "success",
-			filePath:   fmt.Sprintf("../../%s/iam.yaml", cfg.WorkingDir),
-			wantOutput: "Successfully validated IAM request",
-		},
+	filePath := testWriteDataToFile(t, iamReqData, "iam.yaml")
+	wantOutput := "Successfully validated IAM request"
+
+	ctx := context.Background()
+
+	args := []string{
+		"iam", "validate",
+		"-path", filePath,
 	}
 
-	for _, tc := range cases {
-		tc := tc
+	_, stdout, stderr := testPipeAndRun(ctx, t, args)
 
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctx := context.Background()
-
-			args := []string{
-				"iam", "validate",
-				"-path", tc.filePath,
-			}
-
-			_, stdout, stderr, err := cli.PipeAndRun(ctx, args)
-			if err != nil {
-				t.Fatalf("Process(%+v) failed to run command %v", tc.name, err)
-			}
-
-			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
-			}
-			if stderr.String() != "" {
-				t.Errorf("Process(%+v) got unexpected error: %q)", tc.name, stderr.String())
-			}
-		})
+	if strings.TrimSpace(wantOutput) != strings.TrimSpace(stdout.String()) {
+		t.Errorf("Output response got %q, want %q)", stdout.String(), wantOutput)
+	}
+	if stderr.String() != "" {
+		t.Errorf("Got unexpected error: %q)", stderr.String())
 	}
 }
 
 func TestToolDo(t *testing.T) {
 	t.Parallel()
 
+	filePath := testWriteDataToFile(t, toolReqData, "tool.yaml")
+
 	cases := []struct {
 		name       string
-		filePath   string
 		verbose    bool
 		wantOutput string
 	}{
 		{
-			name:     "success",
-			filePath: fmt.Sprintf("../../%s/tool.yaml", cfg.WorkingDir),
-			wantOutput: strings.ReplaceAll(`
+			name: "success",
+			wantOutput: `
 ------Successfully Completed Commands------
-- gcloud projects list --uri --filter projectId:INTEG_TEST_PROJECT_ID
-- gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_ID`,
-				"INTEG_TEST_PROJECT_ID", cfg.ProjectID),
+- gcloud projects list --uri --sort-by=projectId --limit=1
+- gcloud projects list --format json --sort-by=projectId --limit=1`,
 		},
 		{
-			name:     "success_verbose",
-			filePath: fmt.Sprintf("../../%s/tool.yaml", cfg.WorkingDir),
-			verbose:  true,
-			wantOutput: strings.ReplaceAll(`------Tool Commands Output------
-gcloud projects list --uri --filter projectId:INTEG_TEST_PROJECT_ID
-https://cloudresourcemanager.googleapis.com/v1/projects/INTEG_TEST_PROJECT_ID
+			name:    "success_verbose",
+			verbose: true,
+			wantOutput: fmt.Sprintf(`------Tool Commands Output------
+gcloud projects list --uri --sort-by=projectId --limit=1
+https://cloudresourcemanager.googleapis.com/v1/projects/%s
 
-gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_ID
+gcloud projects list --format json --uri --sort-by=projectId --limit=1
 [
-  "https://cloudresourcemanager.googleapis.com/v1/projects/INTEG_TEST_PROJECT_ID"
+  "https://cloudresourcemanager.googleapis.com/v1/projects/%s"
 ]
 ------Successfully Completed Commands------
-- gcloud projects list --uri --filter projectId:INTEG_TEST_PROJECT_ID
-- gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_ID
-`, "INTEG_TEST_PROJECT_ID", cfg.ProjectID),
+- gcloud projects list --uri --sort-by=projectId --limit=1
+- gcloud projects list --format json --uri --sort-by=projectId --limit=1
+`, cfg.ProjectID, cfg.ProjectID),
 		},
 	}
 
@@ -245,16 +236,13 @@ gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_I
 
 			args := []string{
 				"tool", "do",
-				"-path", tc.filePath,
+				"-path", filePath,
 			}
 			if tc.verbose {
 				args = append(args, "-verbose")
 			}
 
-			_, stdout, stderr, err := cli.PipeAndRun(ctx, args)
-			if err != nil {
-				t.Fatalf("Process(%+v) failed to run command %v", tc.name, err)
-			}
+			_, stdout, stderr := testPipeAndRun(ctx, t, args)
 
 			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
 				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
@@ -269,38 +257,35 @@ gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_I
 func TestToolCleanup(t *testing.T) {
 	t.Parallel()
 
+	filePath := testWriteDataToFile(t, toolReqData, "tool.yaml")
+
 	cases := []struct {
-		name         string
-		filePath     string
-		verbose      bool
-		wantBindings []*iampb.Binding
-		wantOutput   string
+		name       string
+		verbose    bool
+		wantOutput string
 	}{
 		{
-			name:     "success",
-			filePath: fmt.Sprintf("../../%s/tool.yaml", cfg.WorkingDir),
-			wantOutput: strings.ReplaceAll(`
+			name: "success",
+			wantOutput: `
 ------Successfully Completed Commands------
-- gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_ID
-- gcloud projects list --uri --filter projectId:INTEG_TEST_PROJECT_ID`,
-				"INTEG_TEST_PROJECT_ID", cfg.ProjectID),
+- gcloud projects list --format json --uri --sort-by=projectId --limit=1
+- gcloud projects list --uri --sort-by=projectId --limit=1`,
 		},
 		{
-			name:     "success_verbose",
-			filePath: fmt.Sprintf("../../%s/tool.yaml", cfg.WorkingDir),
-			verbose:  true,
-			wantOutput: strings.ReplaceAll(`------Tool Commands Output------
-gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_ID
+			name:    "success_verbose",
+			verbose: true,
+			wantOutput: fmt.Sprintf(`------Tool Commands Output------
+gcloud projects list --format json --uri --sort-by=projectId --limit=1
 [
-  "https://cloudresourcemanager.googleapis.com/v1/projects/INTEG_TEST_PROJECT_ID"
+  "https://cloudresourcemanager.googleapis.com/v1/projects/%s"
 ]
 
-gcloud projects list --uri --filter projectId:INTEG_TEST_PROJECT_ID
-https://cloudresourcemanager.googleapis.com/v1/projects/INTEG_TEST_PROJECT_ID
+gcloud projects list --uri --sort-by=projectId --limit=1
+https://cloudresourcemanager.googleapis.com/v1/projects/%s
 ------Successfully Completed Commands------
-- gcloud projects list --format json --uri --filter projectId:INTEG_TEST_PROJECT_ID
-- gcloud projects list --uri --filter projectId:INTEG_TEST_PROJECT_ID
-`, "INTEG_TEST_PROJECT_ID", cfg.ProjectID),
+- gcloud projects list --format json --uri --sort-by=projectId --limit=1
+- gcloud projects list --uri --sort-by=projectId --limit=1
+`, cfg.ProjectID, cfg.ProjectID),
 		},
 	}
 
@@ -314,16 +299,13 @@ https://cloudresourcemanager.googleapis.com/v1/projects/INTEG_TEST_PROJECT_ID
 
 			args := []string{
 				"tool", "cleanup",
-				"-path", tc.filePath,
+				"-path", filePath,
 			}
 			if tc.verbose {
 				args = append(args, "-verbose")
 			}
 
-			_, stdout, stderr, err := cli.PipeAndRun(ctx, args)
-			if err != nil {
-				t.Fatalf("Process(%+v) failed to run command %v", tc.name, err)
-			}
+			_, stdout, stderr := testPipeAndRun(ctx, t, args)
 
 			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
 				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
@@ -338,79 +320,93 @@ https://cloudresourcemanager.googleapis.com/v1/projects/INTEG_TEST_PROJECT_ID
 func TestToolValidate(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
-		name       string
-		filePath   string
-		wantOutput string
-	}{
-		{
-			name:       "success",
-			filePath:   fmt.Sprintf("../../%s/tool.yaml", cfg.WorkingDir),
-			wantOutput: "Successfully validated tool request",
-		},
+	ctx := context.Background()
+	filePath := testWriteDataToFile(t, toolReqData, "tool.yaml")
+	wantOutput := "Successfully validated tool request"
+
+	args := []string{
+		"tool", "validate",
+		"-path", filePath,
 	}
 
-	for _, tc := range cases {
-		tc := tc
+	_, stdout, stderr := testPipeAndRun(ctx, t, args)
 
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctx := context.Background()
-
-			args := []string{
-				"tool", "validate",
-				"-path", tc.filePath,
-			}
-
-			_, stdout, stderr, err := cli.PipeAndRun(ctx, args)
-			if err != nil {
-				t.Fatalf("Process(%+v) failed to run command %v", tc.name, err)
-			}
-
-			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
-			}
-			if stderr.String() != "" {
-				t.Errorf("Process(%+v) got unexpected error: %q)", tc.name, stderr.String())
-			}
-		})
+	if strings.TrimSpace(wantOutput) != strings.TrimSpace(stdout.String()) {
+		t.Errorf("Output response got %q, want %q)", stdout.String(), wantOutput)
+	}
+	if stderr.String() != "" {
+		t.Errorf("Got unexpected error: %q)", stderr.String())
 	}
 }
 
-func testGetPolicyBindings(ctx context.Context, tb testing.TB, cfg *config) ([]*iampb.Binding, error) {
+// testAddedPolicyBindings is a helper function that returns the IAM bindings
+// of matched condition title in the cfg. It also removes them from the project
+// IAM policy as cleanup.
+func testAddedPolicyBindings(ctx context.Context, tb testing.TB, cfg *config) (result []*iampb.Binding) {
 	tb.Helper()
 
-	req := &iampb.GetIamPolicyRequest{
+	getIAMReq := &iampb.GetIamPolicyRequest{
 		Resource: fmt.Sprintf("projects/%s", cfg.ProjectID),
 		Options: &iampb.GetPolicyOptions{
 			RequestedPolicyVersion: 3,
 		},
 	}
 	backoff := retry.WithMaxRetries(cfg.QueryRetryLimit, retry.NewConstant(cfg.QueryRetryWaitDuration))
-	var bs []*iampb.Binding
 
 	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
-		p, err := projectClient.GetIamPolicy(ctx, req)
+		p, err := projectClient.GetIamPolicy(ctx, getIAMReq)
 		if err != nil {
 			return retry.RetryableError(fmt.Errorf("failed to get IAM policy: %w", err))
 		}
-		bs = p.Bindings
+		var bs []*iampb.Binding
+		for _, b := range p.Bindings {
+			if b.Condition != nil && b.Condition.Title == cfg.ConditionTitle {
+				result = append(result, b)
+				continue
+			}
+			bs = append(bs, b)
+		}
+		p.Bindings = bs
+		setIAMReq := &iampb.SetIamPolicyRequest{
+			Resource: fmt.Sprintf("projects/%s", cfg.ProjectID),
+			Policy:   p,
+		}
+		if _, err := projectClient.SetIamPolicy(ctx, setIAMReq); err != nil {
+			return retry.RetryableError(fmt.Errorf("failed to set IAM policy: %w", err))
+		}
 		return nil
 	}); err != nil {
-		return nil, err
+		tb.Fatal(err)
 	}
 
-	return bs, nil
+	return result
 }
 
-func testGotBindings(tb testing.TB, bs []*iampb.Binding, matchTitle string) (result []*iampb.Binding) {
+func testWriteDataToFile(tb testing.TB, data string, fileName string) (filePath string) {
 	tb.Helper()
 
-	for _, b := range bs {
-		if b.Condition != nil && b.Condition.Title == matchTitle {
-			result = append(result, b)
-		}
+	filePath = filepath.Join(tb.TempDir(), fileName)
+	if err := os.WriteFile(filePath, []byte(data), 0o600); err != nil {
+		tb.Fatalf("failed to write %s data to file: %v", fileName, err)
 	}
-	return result
+	return
+}
+
+// testPipeAndRun creates new unqiue stdin, stdout, and stderr buffers, sets
+// them on the command, and run the command.
+func testPipeAndRun(ctx context.Context, tb testing.TB, args []string) (stdin, stdout, stderr *bytes.Buffer) {
+	tb.Helper()
+
+	stdin = bytes.NewBuffer(nil)
+	stdout = bytes.NewBuffer(nil)
+	stderr = bytes.NewBuffer(nil)
+	c := cli.RootCmd()
+	c.SetStdin(stdin)
+	c.SetStdout(stdout)
+	c.SetStderr(stderr)
+
+	if err := c.Run(ctx, args); err != nil {
+		tb.Fatalf("failed to run root command: %v", err)
+	}
+	return
 }

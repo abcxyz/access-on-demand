@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// integration package that tests the lumberctl root command.
 package integration
 
 import (
@@ -23,14 +24,11 @@ import (
 )
 
 type config struct {
-	ProjectID                 string        `env:"INTEG_TEST_PROJECT_ID,required"`
-	IAMExpirationStartTime    string        `env:"INTEG_TEST_IAM_EXPIRATION_START_TIME,required"`
-	IAMExpirationDurationHour string        `env:"INTEG_TEST_IAM_EXPIRATION_DURATION_HOUR,required"`
-	IAMExpiration             string        `env:"INTEG_TEST_IAM_EXPIRATION,required"`
-	QueryRetryWaitDuration    time.Duration `env:"INTEG_TEST_QUERY_RETRY_WAIT_DURATION,default=10s"`
-	QueryRetryLimit           uint64        `env:"INTEG_TEST_QUERY_RETRY_COUNT,default=20"`
-	ConditionTitle            string        `env:"INTEG_TEST_CONDITION_TITLE,required"`
-	WorkingDir                string        `env:"INTEG_TEST_WORKING_DIR,required"`
+	ProjectID              string        `env:"INTEG_TEST_PROJECT_ID,required"`
+	QueryRetryWaitDuration time.Duration `env:"INTEG_TEST_QUERY_RETRY_WAIT_DURATION,default=10s"`
+	QueryRetryLimit        uint64        `env:"INTEG_TEST_QUERY_RETRY_COUNT,default=20"`
+	ConditionTitle         string        `env:"INTEG_TEST_CONDITION_TITLE,required"`
+	IAMUser                string        `env:"INTEG_TEST_IAM_USER,required"`
 }
 
 func newTestConfig(ctx context.Context) (*config, error) {

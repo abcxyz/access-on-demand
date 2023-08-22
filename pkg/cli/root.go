@@ -16,15 +16,14 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 
 	"github.com/abcxyz/access-on-demand/internal/version"
 	"github.com/abcxyz/pkg/cli"
 )
 
-// rootCmd defines the starting command structure.
-var rootCmd = func() cli.Command {
+// RootCmd defines the starting command structure.
+var RootCmd = func() cli.Command {
 	return &cli.RootCommand{
 		Name:    "aod",
 		Version: version.HumanVersion,
@@ -66,21 +65,5 @@ var rootCmd = func() cli.Command {
 
 // Run executes the CLI.
 func Run(ctx context.Context, args []string) error {
-	return rootCmd().Run(ctx, args) //nolint:wrapcheck // Want passthrough
-}
-
-// PipeAndRun creates new unqiue stdin, stdout, and stderr buffers, sets them on
-// the command, and run the command. This is most useful for testing where
-// callers want to simulate inputs or assert certain command outputs.
-func PipeAndRun(ctx context.Context, args []string) (stdin, stdout, stderr *bytes.Buffer, err error) {
-	stdin = bytes.NewBuffer(nil)
-	stdout = bytes.NewBuffer(nil)
-	stderr = bytes.NewBuffer(nil)
-	c := rootCmd()
-	c.SetStdin(stdin)
-	c.SetStdout(stdout)
-	c.SetStderr(stderr)
-
-	err = c.Run(ctx, args)
-	return
+	return RootCmd().Run(ctx, args) //nolint:wrapcheck // Want passthrough
 }

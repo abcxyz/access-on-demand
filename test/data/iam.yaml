@@ -1,9 +1,0 @@
-policies:
-  - resource: 'projects/${INTEG_TEST_PROJECT_ID}'
-    bindings:
-      - members:
-          - 'user:aod-test-bot@tycho.joonix.net'
-        role: 'roles/actions.Viewer'
-      - members:
-          - 'user:aod-test-bot@tycho.joonix.net'
-        role: 'roles/ml.viewer'
