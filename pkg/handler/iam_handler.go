@@ -61,6 +61,9 @@ type IAMClient interface {
 	SetIamPolicy(context.Context, *iampb.SetIamPolicyRequest, ...gax.CallOption) (*iampb.Policy, error)
 }
 
+// updatePolicy updates the given IAM policy.
+type updatePolicy func(context.Context, *iampb.Policy, []*v1alpha1.Binding, time.Time)
+
 // Option is the option to set up an IAMHandler.
 type Option func(h *IAMHandler) (*IAMHandler, error)
 
@@ -106,11 +109,29 @@ func NewIAMHandler(ctx context.Context, organizationsClient, foldersClient, proj
 	return h, nil
 }
 
+// Cleanup removes expired IAM bindings added by AOD from the IAM policies of the resources in the request.
+func (h *IAMHandler) Cleanup(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps []*v1alpha1.IAMResponse, retErr error) {
+	expiry := r.StartTime.Add(r.Duration)
+	for _, p := range r.ResourcePolicies {
+		np, err := h.handlePolicy(ctx, p, expiry, h.cleanupExpiredBindings)
+		if err != nil {
+			retErr = errors.Join(
+				retErr,
+				fmt.Errorf("failed to handle policy cleanup for resource %s: %w", p.Resource, err),
+			)
+		}
+		if np != nil {
+			nps = append(nps, np)
+		}
+	}
+	return
+}
+
 // Do removes expired or duplicative IAM bindings added by AOD and adds requested IAM bindings to current IAM policy.
 func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps []*v1alpha1.IAMResponse, retErr error) {
 	expiry := r.StartTime.Add(r.Duration)
 	for _, p := range r.ResourcePolicies {
-		np, err := h.handlePolicy(ctx, p, expiry)
+		np, err := h.handlePolicy(ctx, p, expiry, h.addAndCleanupPolicy)
 		if err != nil {
 			retErr = errors.Join(
 				retErr,
@@ -124,7 +145,7 @@ func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps
 	return
 }
 
-func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, expiry time.Time) (*v1alpha1.IAMResponse, error) {
+func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, expiry time.Time, updateFunc updatePolicy) (*v1alpha1.IAMResponse, error) {
 	var iamC IAMClient
 	switch strings.Split(p.Resource, "/")[0] {
 	case "organizations":
@@ -160,7 +181,7 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 		// bindings, however any errors encounterred during removal will be ignored
 		// and policy update for the request will continue. Removal errors should be
 		// handled separately such as in a global IAM cleanup.
-		h.updatePolicy(ctx, cp, p.Bindings, expiry)
+		updateFunc(ctx, cp, p.Bindings, expiry)
 
 		// Set the new policy.
 		setIAMPolicyRequest := &iampb.SetIamPolicyRequest{
@@ -181,37 +202,33 @@ func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolic
 	return &v1alpha1.IAMResponse{Resource: p.Resource, Policy: np}, nil
 }
 
-// Remove expired bindings and add or update new bindings with expiration condition.
-func (h *IAMHandler) updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
-	logger := logging.FromContext(ctx)
+// addAndCleanupPolicy adds new bindings with expiration condition, it also does
+// best effort cleanup which removes any expired AOD bindings, however any
+// errors encounterred during removal will be ignored and policy update for the
+// request will continue. Removal errors should be handled separately such as
+// in a global IAM cleanup.
+func (h *IAMHandler) addAndCleanupPolicy(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
+	// Cleanup policy.
+	h.cleanupExpiredBindings(ctx, p, bs, expiry)
+
 	// Convert new bindings to a role to unique bindings map.
 	bsMap := toBindingsMap(bs)
-	// Clean up current policy bindings.
+	// Clean up conflicting bindings.
 	var result []*iampb.Binding
 	for _, cb := range p.Bindings {
-		// Skip non-AOD bindings.
+		// Keep non-AOD bindings.
 		if cb.Condition == nil || cb.Condition.Title != h.conditionTitle {
 			result = append(result, cb)
 			continue
 		}
 
-		// Skip expired bindings.
-		expired, err := expired(cb.Condition.Expression)
-		if err != nil {
-			// Continue policy update when there is error checking the AOD expiry.
-			// Cleaning up expired AOD bindings here is best effort.
-			// We rely on a separate process to clean up AOD bindings.
-			logger.WarnContext(ctx, "failed to check expiry", "error", err)
-		}
-		if expired {
-			continue
-		}
-
-		// Skip roles we are not interested in.
+		// Keep roles that are not conflicting with new bindings.
 		if _, ok := bsMap[cb.Role]; !ok {
 			result = append(result, cb)
 			continue
 		}
+
+		// Remove members from the binding if it conflicts with the new bindings.
 		var nm []string
 		for _, m := range cb.Members {
 			if _, ok := bsMap[cb.Role][m]; !ok {
@@ -245,6 +262,38 @@ func (h *IAMHandler) updatePolicy(ctx context.Context, p *iampb.Policy, bs []*v1
 	// Set policy version to 3 to support conditional IAM bindings.
 	// See details here: https://cloud.google.com/iam/docs/policies#specifying-version-set
 	p.Version = 3
+}
+
+// cleanupExpiredBindings does best effort cleanup which removes any expired
+// AOD bindings, however any errors encounterred during removal will be ignored
+// Removal errors should be handled separately such as in a global IAM cleanup.
+// bs and expiry parameters are not used, they are here to match the
+// updatePolicy func signature.
+func (h *IAMHandler)cleanupExpiredBindings(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
+	logger := logging.FromContext(ctx)
+	var keep []*iampb.Binding
+	for _, b := range p.Bindings {
+		// Keep non-AOD bindings.
+		if b.Condition == nil || b.Condition.Title != h.conditionTitle {
+			keep = append(keep, b)
+			continue
+		}
+
+		// Keep unexpired bindings.
+		// Check the expiration using expression directly instead of the given
+		// expiry as they may be different.
+		expired, err := expired(b.Condition.Expression)
+		if err != nil {
+			// Continue policy update when there is error checking the AOD expiry.
+			// Cleaning up expired AOD bindings here is best effort.
+			// We rely on a separate process to clean up AOD bindings.
+			logger.WarnContext(ctx, "failed to check expiry", "error", err)
+		}
+		if !expired {
+			keep = append(keep, b)
+		}
+	}
+	p.Bindings = keep
 }
 
 func toBindingsMap(bs []*v1alpha1.Binding) map[string]map[string]struct{} {

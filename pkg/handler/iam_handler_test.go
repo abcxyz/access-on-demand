@@ -1102,6 +1102,475 @@ func TestDo(t *testing.T) {
 	}
 }
 
+func TestCleanup(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	cases := []struct {
+		name                    string
+		organizationsServer     *fakeServer
+		foldersServer           *fakeServer
+		projectsServer          *fakeServer
+		request                 *v1alpha1.IAMRequestWrapper
+		wantPolicies            []*v1alpha1.IAMResponse
+		wantErrSubstr           string
+		wantOrganizationsPolicy *iampb.Policy
+		wantFoldersPolicy       *iampb.Policy
+		wantProjectsPolicy      *iampb.Policy
+	}{
+		{
+			name: "clean_up_expired_bindings",
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{
+					Bindings: []*iampb.Binding{
+						// Expired bindings to be removed.
+						{
+							Members: []string{
+								"user:test-org-userB@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+							Condition: &expr.Expr{
+								Title:      defaultConditionTitle,
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
+							},
+						},
+					},
+				},
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			request: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: &v1alpha1.IAMRequest{
+					ResourcePolicies: []*v1alpha1.ResourcePolicy{
+						{
+							Resource: "organizations/foo",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-org-userA@example.com",
+									},
+									Role: "roles/bigquery.dataViewer",
+								},
+							},
+						},
+					},
+				},
+				Duration:  2 * time.Hour,
+				StartTime: now,
+			},
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "organizations/foo",
+					Policy: &iampb.Policy{
+						Bindings: []*iampb.Binding{},
+					},
+				},
+			},
+			wantOrganizationsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{},
+			},
+			wantFoldersPolicy:  &iampb.Policy{},
+			wantProjectsPolicy: &iampb.Policy{},
+		},
+		{
+			name: "failed_clean_up_expired_bindings_invalid_expression",
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{
+					Bindings: []*iampb.Binding{
+						{
+							Members: []string{
+								"user:test-org-userB@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+							Condition: &expr.Expr{
+								Title:      defaultConditionTitle,
+								Expression: fmt.Sprintf("request.time <= timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
+							},
+						},
+					},
+				},
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			request: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: &v1alpha1.IAMRequest{
+					ResourcePolicies: []*v1alpha1.ResourcePolicy{
+						{
+							Resource: "organizations/foo",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-org-userA@example.com",
+									},
+									Role: "roles/bigquery.dataViewer",
+								},
+							},
+						},
+					},
+				},
+				Duration:  2 * time.Hour,
+				StartTime: now,
+			},
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "organizations/foo",
+					Policy: &iampb.Policy{
+						Bindings: []*iampb.Binding{
+							{
+								Members: []string{
+									"user:test-org-userB@example.com",
+								},
+								Role: "roles/accessapproval.approver",
+								Condition: &expr.Expr{
+									Title:      defaultConditionTitle,
+									Expression: fmt.Sprintf("request.time <= timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantOrganizationsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-org-userB@example.com",
+						},
+						Role: "roles/accessapproval.approver",
+						Condition: &expr.Expr{
+							Title:      defaultConditionTitle,
+							Expression: fmt.Sprintf("request.time <= timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
+						},
+					},
+				},
+			},
+			wantFoldersPolicy:  &iampb.Policy{},
+			wantProjectsPolicy: &iampb.Policy{},
+		},
+		{
+			name: "failed_clean_up_expired_bindings_wrong_expiration",
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{
+					Bindings: []*iampb.Binding{
+						{
+							Members: []string{
+								"user:test-org-userB@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+							Condition: &expr.Expr{
+								Title:      defaultConditionTitle,
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC850)),
+							},
+						},
+					},
+				},
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			request: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: &v1alpha1.IAMRequest{
+					ResourcePolicies: []*v1alpha1.ResourcePolicy{
+						{
+							Resource: "organizations/foo",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-org-userA@example.com",
+									},
+									Role: "roles/bigquery.dataViewer",
+								},
+							},
+						},
+					},
+				},
+				Duration:  2 * time.Hour,
+				StartTime: now,
+			},
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "organizations/foo",
+					Policy: &iampb.Policy{
+						Bindings: []*iampb.Binding{
+							{
+								Members: []string{
+									"user:test-org-userB@example.com",
+								},
+								Role: "roles/accessapproval.approver",
+								Condition: &expr.Expr{
+									Title:      defaultConditionTitle,
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC850)),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantOrganizationsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-org-userB@example.com",
+						},
+						Role: "roles/accessapproval.approver",
+						Condition: &expr.Expr{
+							Title:      defaultConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC850)),
+						},
+					},
+				},
+			},
+			wantFoldersPolicy:  &iampb.Policy{},
+			wantProjectsPolicy: &iampb.Policy{},
+		},
+		{
+			name: "ignore_non-AOD_bindings",
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{
+					// Non-AOD bindings.
+					Bindings: []*iampb.Binding{
+						{
+							Members: []string{
+								"user:test-folder-user@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+						},
+					},
+				},
+			},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			request: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: &v1alpha1.IAMRequest{
+					ResourcePolicies: []*v1alpha1.ResourcePolicy{
+						{
+							Resource: "folders/bar",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-folder-user@example.com",
+									},
+									Role: "roles/cloudkms.cryptoOperator",
+								},
+							},
+						},
+					},
+				},
+				Duration:  2 * time.Hour,
+				StartTime: now,
+			},
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "folders/bar",
+					Policy: &iampb.Policy{
+						Bindings: []*iampb.Binding{
+							{
+								Members: []string{
+									"user:test-folder-user@example.com",
+								},
+								Role: "roles/accessapproval.approver",
+							},
+						},
+					},
+				},
+			},
+			wantOrganizationsPolicy: &iampb.Policy{},
+			wantFoldersPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-folder-user@example.com",
+						},
+						Role: "roles/accessapproval.approver",
+					},
+				},
+			},
+			wantProjectsPolicy: &iampb.Policy{},
+		},
+		{
+			name: "failed_with_orgs_server_get_iam_policy_error",
+			organizationsServer: &fakeServer{
+				policy:          &iampb.Policy{},
+				getIAMPolicyErr: fmt.Errorf("Get IAM policy encountered error: Internal Server Error"),
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			request: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: &v1alpha1.IAMRequest{
+					ResourcePolicies: []*v1alpha1.ResourcePolicy{
+						{
+							Resource: "organizations/foo",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-org-userA@example.com",
+										"user:test-org-userB@example.com",
+									},
+									Role: "roles/accessapproval.approver",
+								},
+							},
+						},
+						{
+							Resource: "projects/baz",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-project-user@example.com",
+									},
+									Role: "roles/bigquery.dataViewer",
+								},
+							},
+						},
+					},
+				},
+				Duration:  2 * time.Hour,
+				StartTime: now,
+			},
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "projects/baz",
+					Policy: &iampb.Policy{},
+				},
+			},
+			wantErrSubstr:           "Get IAM policy encountered error: Internal Server Error",
+			wantOrganizationsPolicy: &iampb.Policy{},
+			wantFoldersPolicy:       &iampb.Policy{},
+			wantProjectsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{},
+			},
+		},
+		{
+			name: "failed_with_projects_server_set_iam_policy_error",
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			projectsServer: &fakeServer{
+				policy:          &iampb.Policy{},
+				setIAMPolicyErr: fmt.Errorf("Set IAM policy encountered error: Internal Server Error"),
+			},
+			request: &v1alpha1.IAMRequestWrapper{
+				IAMRequest: &v1alpha1.IAMRequest{
+					ResourcePolicies: []*v1alpha1.ResourcePolicy{
+						{
+							Resource: "folders/bar",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-folder-user@example.com",
+									},
+									Role: "roles/cloudkms.cryptoOperator",
+								},
+							},
+						},
+						{
+							Resource: "projects/baz",
+							Bindings: []*v1alpha1.Binding{
+								{
+									Members: []string{
+										"user:test-project-user@example.com",
+									},
+									Role: "roles/bigquery.dataViewer",
+								},
+							},
+						},
+					},
+				},
+				Duration:  1 * time.Hour,
+				StartTime: now,
+			},
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "folders/bar",
+					Policy: &iampb.Policy{},
+				},
+			},
+			wantErrSubstr:           "Set IAM policy encountered error: Internal Server Error",
+			wantOrganizationsPolicy: &iampb.Policy{},
+			wantFoldersPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{},
+			},
+			wantProjectsPolicy: &iampb.Policy{},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := context.Background()
+
+			fakeOrganizationsClient, fakeFoldersClient, fakeProjectsClient := setupFakeClients(
+				t,
+				ctx,
+				tc.organizationsServer,
+				tc.foldersServer,
+				tc.projectsServer,
+			)
+
+			opts := []Option{
+				WithRetry(retry.WithMaxRetries(0, retry.NewFibonacci(500*time.Millisecond))),
+			}
+
+			h, err := NewIAMHandler(
+				ctx,
+				fakeOrganizationsClient,
+				fakeFoldersClient,
+				fakeProjectsClient,
+				opts...,
+			)
+			if err != nil {
+				t.Fatalf("failed to create IAMHandler: %v", err)
+			}
+
+			// Run test.
+			gotPolicies, gotErr := h.Cleanup(ctx, tc.request)
+			if diff := testutil.DiffErrString(gotErr, tc.wantErrSubstr); diff != "" {
+				t.Errorf("Process(%+v) got unexpected error substring: %v", tc.name, diff)
+			}
+			// Verify that the Policies are modified accordingly.
+			if diff := cmp.Diff(tc.wantPolicies, gotPolicies, protocmp.Transform()); diff != "" {
+				t.Errorf("Process(%+v) got diff (-want, +got): %v", tc.name, diff)
+			}
+
+			if diff := cmp.Diff(tc.wantOrganizationsPolicy, tc.organizationsServer.policy, protocmp.Transform()); diff != "" {
+				t.Errorf("Process(%+v) got org policy diff (-want, +got): %v", tc.name, diff)
+			}
+
+			if diff := cmp.Diff(tc.wantFoldersPolicy, tc.foldersServer.policy, protocmp.Transform()); diff != "" {
+				t.Errorf("Process(%+v) got folder policy diff (-want, +got): %v", tc.name, diff)
+			}
+
+			if diff := cmp.Diff(tc.wantProjectsPolicy, tc.projectsServer.policy, protocmp.Transform()); diff != "" {
+				t.Errorf("Process(%+v) got project policy diff (-want, +got): %v", tc.name, diff)
+			}
+		})
+	}
+}
+
 func setupFakeClients(t *testing.T, ctx context.Context, s1, s2, s3 *fakeServer) (c1, c2, c3 IAMClient) {
 	t.Helper()
 
