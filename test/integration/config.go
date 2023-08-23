@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// integration package that tests the lumberctl root command.
+// Package integration tests the aod root command.
 package integration
 
 import (

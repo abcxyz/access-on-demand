@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// integration package that tests the lumberctl root command.
+// Package integration tests the aod root command.
 package integration
 
 import (
@@ -101,7 +101,7 @@ func TestIAMHandle(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	filePath := testWriteDataToFile(t, iamReqData, "iam.yaml")
+	reqFilePath := testWriteReqFile(t, iamReqData, "iam.yaml")
 
 	now := time.Now().UTC().Round(time.Second)
 	d := 3 * time.Hour
@@ -141,7 +141,7 @@ starttime: %s
 
 	args := []string{
 		"iam", "handle",
-		"-path", filePath,
+		"-path", reqFilePath,
 		"-start-time", now.Format(time.RFC3339),
 		"-duration", d.String(),
 		"-custom-condition-title", cfg.ConditionTitle,
@@ -150,18 +150,18 @@ starttime: %s
 	// Cleanup the IAM policy again in case testPipeAndRun failed and ended
 	// the test.
 	t.Cleanup(func() {
-		testAddedPolicyBindings(ctx, t, cfg)
+		testGetAndResetBindings(ctx, t, cfg)
 	})
 
 	_, stdout, stderr := testPipeAndRun(ctx, t, args)
 
-	bs := testAddedPolicyBindings(ctx, t, cfg)
+	gotBindings := testGetAndResetBindings(ctx, t, cfg)
 
-	if diff := cmp.Diff(wantBindings, bs, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(wantBindings, gotBindings, protocmp.Transform()); diff != "" {
 		t.Errorf("Got project bindings diff (-want, +got): %v", diff)
 	}
-	if strings.TrimSpace(wantOutput) != strings.TrimSpace(stdout.String()) {
-		t.Errorf("Output response got %q, want %q)", stdout.String(), wantOutput)
+	if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(wantOutput); got != want {
+		t.Errorf("Output response got %q, want %q)", got, want)
 	}
 	if stderr.String() != "" {
 		t.Errorf("Got unexpected error: %q)", stderr.String())
@@ -171,20 +171,20 @@ starttime: %s
 func TestIAMValidate(t *testing.T) {
 	t.Parallel()
 
-	filePath := testWriteDataToFile(t, iamReqData, "iam.yaml")
+	reqFilePath := testWriteReqFile(t, iamReqData, "iam.yaml")
 	wantOutput := "Successfully validated IAM request"
 
 	ctx := context.Background()
 
 	args := []string{
 		"iam", "validate",
-		"-path", filePath,
+		"-path", reqFilePath,
 	}
 
 	_, stdout, stderr := testPipeAndRun(ctx, t, args)
 
-	if strings.TrimSpace(wantOutput) != strings.TrimSpace(stdout.String()) {
-		t.Errorf("Output response got %q, want %q)", stdout.String(), wantOutput)
+	if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(wantOutput); got != want {
+		t.Errorf("Output response got %q, want %q)", got, want)
 	}
 	if stderr.String() != "" {
 		t.Errorf("Got unexpected error: %q)", stderr.String())
@@ -194,7 +194,7 @@ func TestIAMValidate(t *testing.T) {
 func TestToolDo(t *testing.T) {
 	t.Parallel()
 
-	filePath := testWriteDataToFile(t, toolReqData, "tool.yaml")
+	reqFilePath := testWriteReqFile(t, toolReqData, "tool.yaml")
 
 	cases := []struct {
 		name       string
@@ -236,7 +236,7 @@ gcloud projects list --format json --uri --sort-by=projectId --limit=1
 
 			args := []string{
 				"tool", "do",
-				"-path", filePath,
+				"-path", reqFilePath,
 			}
 			if tc.verbose {
 				args = append(args, "-verbose")
@@ -244,8 +244,8 @@ gcloud projects list --format json --uri --sort-by=projectId --limit=1
 
 			_, stdout, stderr := testPipeAndRun(ctx, t, args)
 
-			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
+			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.wantOutput); got != want {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, got, want)
 			}
 			if stderr.String() != "" {
 				t.Errorf("Process(%+v) got unexpected error: %q)", tc.name, stderr.String())
@@ -257,7 +257,7 @@ gcloud projects list --format json --uri --sort-by=projectId --limit=1
 func TestToolCleanup(t *testing.T) {
 	t.Parallel()
 
-	filePath := testWriteDataToFile(t, toolReqData, "tool.yaml")
+	reqFilePath := testWriteReqFile(t, toolReqData, "tool.yaml")
 
 	cases := []struct {
 		name       string
@@ -299,7 +299,7 @@ https://cloudresourcemanager.googleapis.com/v1/projects/%s
 
 			args := []string{
 				"tool", "cleanup",
-				"-path", filePath,
+				"-path", reqFilePath,
 			}
 			if tc.verbose {
 				args = append(args, "-verbose")
@@ -307,8 +307,8 @@ https://cloudresourcemanager.googleapis.com/v1/projects/%s
 
 			_, stdout, stderr := testPipeAndRun(ctx, t, args)
 
-			if strings.TrimSpace(tc.wantOutput) != strings.TrimSpace(stdout.String()) {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, stdout.String(), tc.wantOutput)
+			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.wantOutput); got != want {
+				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, got, want)
 			}
 			if stderr.String() != "" {
 				t.Errorf("Process(%+v) got unexpected error: %q)", tc.name, stderr.String())
@@ -321,28 +321,28 @@ func TestToolValidate(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	filePath := testWriteDataToFile(t, toolReqData, "tool.yaml")
+	reqFilePath := testWriteReqFile(t, toolReqData, "tool.yaml")
 	wantOutput := "Successfully validated tool request"
 
 	args := []string{
 		"tool", "validate",
-		"-path", filePath,
+		"-path", reqFilePath,
 	}
 
 	_, stdout, stderr := testPipeAndRun(ctx, t, args)
 
-	if strings.TrimSpace(wantOutput) != strings.TrimSpace(stdout.String()) {
-		t.Errorf("Output response got %q, want %q)", stdout.String(), wantOutput)
+	if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(wantOutput); got != want {
+		t.Errorf("Output response got %q, want %q)", got, want)
 	}
 	if stderr.String() != "" {
 		t.Errorf("Got unexpected error: %q)", stderr.String())
 	}
 }
 
-// testAddedPolicyBindings is a helper function that returns the IAM bindings
+// testGetAndResetBindings is a helper function that returns the IAM bindings
 // of matched condition title in the cfg. It also removes them from the project
 // IAM policy as cleanup.
-func testAddedPolicyBindings(ctx context.Context, tb testing.TB, cfg *config) (result []*iampb.Binding) {
+func testGetAndResetBindings(ctx context.Context, tb testing.TB, cfg *config) (result []*iampb.Binding) {
 	tb.Helper()
 
 	getIAMReq := &iampb.GetIamPolicyRequest{
@@ -382,7 +382,7 @@ func testAddedPolicyBindings(ctx context.Context, tb testing.TB, cfg *config) (r
 	return result
 }
 
-func testWriteDataToFile(tb testing.TB, data, fileName string) (filePath string) {
+func testWriteReqFile(tb testing.TB, data, fileName string) (filePath string) {
 	tb.Helper()
 
 	filePath = filepath.Join(tb.TempDir(), fileName)
