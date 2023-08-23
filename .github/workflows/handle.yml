@@ -73,9 +73,9 @@ jobs:
           echo REVIEW_DECISION=$reviewDecision >> $GITHUB_OUTPUT
 
   handle:
-    # Only handle the request when the PR is approved by qualified approvers.
+    # Only handle the request when the PR is already approved by qualified approvers.
     needs: 'review_status'
-    if: '${{ needs.review_status.outputs.REVIEW_DECISION == ''APPROVED'' }}'
+    if: '${{ needs.review_status.outputs.REVIEW_DECISION == ''APPROVED'' && github.event.review.state == ''approved''}}'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
