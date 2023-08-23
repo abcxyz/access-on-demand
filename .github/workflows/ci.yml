@@ -85,7 +85,8 @@ jobs:
       - name: 'Set Condition Title'
         run: |
           run_id=${{ github.run_id }}
-          echo "INTEG_TEST_CONDITION_TITLE=ci-expiry-${run_id: -6}" >> $GITHUB_ENV
+          ref=$(echo ${{ github.ref_name }} | cut -b 1-20)
+          echo "INTEG_TEST_CONDITION_TITLE=ci-expiry-${ref}-${run_id: -6}" >> $GITHUB_ENV
       - name: 'Run tests'
         run: |
           go test ./test/integration -timeout=15m
