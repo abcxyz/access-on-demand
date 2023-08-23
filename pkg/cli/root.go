@@ -22,8 +22,8 @@ import (
 	"github.com/abcxyz/pkg/cli"
 )
 
-// rootCmd defines the starting command structure.
-var rootCmd = func() cli.Command {
+// RootCmd defines the starting command structure.
+var RootCmd = func() cli.Command {
 	return &cli.RootCommand{
 		Name:    "aod",
 		Version: version.HumanVersion,
@@ -65,5 +65,5 @@ var rootCmd = func() cli.Command {
 
 // Run executes the CLI.
 func Run(ctx context.Context, args []string) error {
-	return rootCmd().Run(ctx, args) //nolint:wrapcheck // Want passthrough
+	return RootCmd().Run(ctx, args) //nolint:wrapcheck // Want passthrough
 }

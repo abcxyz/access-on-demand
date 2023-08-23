@@ -29,7 +29,7 @@ Usage: aod COMMAND
   tool    Perform operations to run CLI tools on demand
 `
 
-	cmd := rootCmd()
+	cmd := RootCmd()
 	if got, want := strings.TrimSpace(cmd.Help()), strings.TrimSpace(exp); got != want {
 		t.Errorf("got\n\n%s\n\nwant\n\n%s\n\n", got, want)
 	}
