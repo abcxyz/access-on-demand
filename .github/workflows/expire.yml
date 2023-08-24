@@ -83,6 +83,8 @@ jobs:
                   repo: repoName,
                   branch: ref,
                 })
+                // Branch returns the latest commit info. See schema:
+                // https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#get-a-branch
                 const lastCommittedAt = branch['data']['commit']['commit']['committer']['date']
                 core.info(`#${pull['number']} lastCommittedAt (${lastCommittedAt})`);
 
@@ -105,7 +107,7 @@ jobs:
                   owner: repoOwner,
                   repo: repoName,
                   issue_number: pull['number'],
-                  body: `**\`Access on Demand\`** - request closed and branch deleted due to inactivity of commit change for at least ${{ inputs.expiry_hours }} hours`,
+                  body: `**\`Access on Demand\`** - request closed and branch deleted due to inactivity (no new commit) for at least ${{ inputs.expiry_hours }} hours`,
                 });
 
                 core.info(`Deleting branch ${ref}`);
