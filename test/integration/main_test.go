@@ -97,7 +97,7 @@ func TestMain(m *testing.M) {
 	}())
 }
 
-func TestIAMHandle(t *testing.T) {
+func TestIAMHandleAndCleanup(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -106,6 +106,7 @@ func TestIAMHandle(t *testing.T) {
 	now := time.Now().UTC().Round(time.Second)
 	d := 3 * time.Hour
 
+	// IAM policy will sort the bindings based on role alphabetical order.
 	wantBindings := []*iampb.Binding{
 		{
 			Role:    "roles/actions.Viewer",
@@ -124,7 +125,7 @@ func TestIAMHandle(t *testing.T) {
 			},
 		},
 	}
-	wantOutput := fmt.Sprintf(`------Successfully Handled IAM Request------
+	wantHandleOutput := fmt.Sprintf(`------Successfully Handled IAM Request------
 iamrequest:
   policies:
     - resource: projects/access-on-demand-i-12af76
@@ -139,7 +140,19 @@ duration: %s
 starttime: %s
 `, cfg.IAMUser, cfg.IAMUser, d.String(), now.Format(time.RFC3339))
 
-	args := []string{
+	wantCleanupOutput := fmt.Sprintf(`------Successfully Removed Requested Bindings------
+policies:
+  - resource: projects/access-on-demand-i-12af76
+    bindings:
+      - members:
+          - %s
+        role: roles/actions.Viewer
+      - members:
+          - %s
+        role: roles/ml.viewer
+`, cfg.IAMUser, cfg.IAMUser)
+
+	handleArgs := []string{
 		"iam", "handle",
 		"-path", reqFilePath,
 		"-start-time", now.Format(time.RFC3339),
@@ -147,24 +160,38 @@ starttime: %s
 		"-custom-condition-title", cfg.ConditionTitle,
 	}
 
-	// Cleanup the IAM policy again in case testPipeAndRun failed and ended
-	// the test.
+	// Cleanup/Reset the IAM policy.
 	t.Cleanup(func() {
-		testGetAndResetBindings(ctx, t, cfg)
+		testGetAndResetBindings(ctx, t, cfg, true)
 	})
 
-	_, stdout, stderr := testPipeAndRun(ctx, t, args)
+	_, handleStdout, handleStderr := testPipeAndRun(ctx, t, handleArgs)
 
-	gotBindings := testGetAndResetBindings(ctx, t, cfg)
+	gotHandleBindings := testGetAndResetBindings(ctx, t, cfg, false)
 
-	if diff := cmp.Diff(wantBindings, gotBindings, protocmp.Transform()); diff != "" {
-		t.Errorf("Got project bindings diff (-want, +got): %v", diff)
+	if diff := cmp.Diff(wantBindings, gotHandleBindings, protocmp.Transform()); diff != "" {
+		t.Errorf("Handle got project bindings diff (-want, +got): %v", diff)
 	}
-	if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(wantOutput); got != want {
-		t.Errorf("Output response got %q, want %q)", got, want)
+	if got, want := strings.TrimSpace(handleStdout.String()), strings.TrimSpace(wantHandleOutput); got != want {
+		t.Errorf("Handle output response got %q, want %q)", got, want)
 	}
-	if stderr.String() != "" {
-		t.Errorf("Got unexpected error: %q)", stderr.String())
+	if handleStderr.String() != "" {
+		t.Errorf("Handle got unexpected error: %q)", handleStderr.String())
+	}
+
+	cleanupArgs := []string{"iam", "cleanup", "-path", reqFilePath}
+
+	_, cleanupStdout, cleanupStderr := testPipeAndRun(ctx, t, cleanupArgs)
+
+	gotCleanupBindings := testGetAndResetBindings(ctx, t, cfg, false)
+	if diff := cmp.Diff(wantBindings, gotCleanupBindings, protocmp.Transform()); diff != "" {
+		t.Errorf("Cleanup got project bindings diff (-want, +got): %v", diff)
+	}
+	if got, want := strings.TrimSpace(cleanupStdout.String()), strings.TrimSpace(wantCleanupOutput); got != want {
+		t.Errorf("Cleanup output response got %q, want %q)", got, want)
+	}
+	if cleanupStderr.String() != "" {
+		t.Errorf("Cleanup got unexpected error: %q)", cleanupStderr.String())
 	}
 }
 
@@ -341,8 +368,8 @@ func TestToolValidate(t *testing.T) {
 
 // testGetAndResetBindings is a helper function that returns the IAM bindings
 // of matched condition title in the cfg. It also removes them from the project
-// IAM policy as cleanup.
-func testGetAndResetBindings(ctx context.Context, tb testing.TB, cfg *config) (result []*iampb.Binding) {
+// IAM policy if reset is true.
+func testGetAndResetBindings(ctx context.Context, tb testing.TB, cfg *config, reset bool) (result []*iampb.Binding) {
 	tb.Helper()
 
 	getIAMReq := &iampb.GetIamPolicyRequest{
@@ -367,8 +394,8 @@ func testGetAndResetBindings(ctx context.Context, tb testing.TB, cfg *config) (r
 			bs = append(bs, b)
 		}
 
-		// Stop if the no bindings was added.
-		if len(result) == 0 {
+		// Stop if the no bindings was added or reset is not needed.
+		if len(result) == 0 || !reset {
 			return nil
 		}
 
