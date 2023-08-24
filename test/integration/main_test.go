@@ -137,7 +137,7 @@ iamrequest:
           role: roles/ml.viewer
 duration: %s
 starttime: %s
-`, cfg.IAMUser, cfg.IAMUser, d.String(), now)
+`, cfg.IAMUser, cfg.IAMUser, d.String(), now.Format(time.RFC3339))
 
 	args := []string{
 		"iam", "handle",
@@ -206,7 +206,7 @@ func TestToolDo(t *testing.T) {
 			wantOutput: `
 ------Successfully Completed Commands------
 - gcloud projects list --uri --sort-by=projectId --limit=1
-- gcloud projects list --format json --sort-by=projectId --limit=1`,
+- gcloud projects list --format json --uri --sort-by=projectId --limit=1`,
 		},
 		{
 			name:    "success_verbose",
@@ -366,6 +366,12 @@ func testGetAndResetBindings(ctx context.Context, tb testing.TB, cfg *config) (r
 			}
 			bs = append(bs, b)
 		}
+
+		// Stop if the no bindings was added.
+		if len(result) == 0 {
+			return nil
+		}
+
 		p.Bindings = bs
 		setIAMReq := &iampb.SetIamPolicyRequest{
 			Resource: fmt.Sprintf("projects/%s", cfg.ProjectID),

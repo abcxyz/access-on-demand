@@ -27,6 +27,13 @@ concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
   cancel-in-progress: true
 
+env:
+  WIF_PROVIDER: 'projects/1004827208550/locations/global/workloadIdentityPools/gh-automation-i-e66ce1/providers/gh-automation-i-e66ce1'
+  WIF_SERVICE_ACCOUNT: 'gh-automation-i-sa@gh-aod-ci-i-38c26b.iam.gserviceaccount.com'
+  INTEG_TEST_PROJECT_ID: 'access-on-demand-i-12af76'
+  INTEG_TEST_IAM_USER: 'user:aod-test-bot@tycho.joonix.net'
+  TEST_INTEGRATION: 'true'
+
 jobs:
   # Linting job - go.
   go_lint:
@@ -42,3 +49,44 @@ jobs:
     uses: 'abcxyz/pkg/.github/workflows/go-test.yml@main' # ratchet:exclude
     with:
       go_version: '1.21'
+
+  # lint_and_unit is a virtual job that is used as dependencies for later jobs.
+  lint_and_unit:
+    runs-on: 'ubuntu-latest'
+    needs:
+      - 'go_lint'
+      - 'yaml_lint'
+      - 'go_test'
+    steps:
+      - run: 'echo prechecks complete'
+
+  run_integ_test:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    needs: ['lint_and_unit']
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
+      - name: 'Setup Go'
+        uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
+        with:
+          go-version: '1.21'
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
+          token_format: 'access_token'
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b' # ratchet:google-github-actions/setup-gcloud@v1
+      - name: 'Set Condition Title'
+        run: |
+          run_id=${{ github.run_id }}
+          ref=$(echo ${{ github.ref_name }} | cut -b 1-20)
+          echo "INTEG_TEST_CONDITION_TITLE=ci-expiry-${ref}-${run_id: -6}" >> $GITHUB_ENV
+      - name: 'Run tests'
+        run: |
+          go test ./test/integration -timeout=15m
