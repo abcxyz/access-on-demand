@@ -76,9 +76,19 @@ jobs:
               // Check if the PR is an AOD request by checking the AOD file existence.
               if (files.data.find(f => (f.filename === 'iam.yaml' || f.filename === 'tool.yaml'))) {
                 // Check if the PR is within the cutoff threshold
-                const updatedAt = new Date(Date.parse(pull['updated_at']));
+                // Get last committed at time from ref branch
+                const ref = pull['head']['ref']
+                const branch = await github.rest.repos.getBranch({
+                  owner: repoOwner,
+                  repo: repoName,
+                  branch: ref,
+                })
+                // Branch returns the latest commit info. See schema:
+                // https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#get-a-branch
+                const lastCommittedAt = branch['data']['commit']['commit']['committer']['date']
+                core.info(`#${pull['number']} lastCommittedAt (${lastCommittedAt})`);
 
-                if (now.getTime() - updatedAt.getTime() < cutoffMs) {
+                if (now.getTime() - new Date(Date.parse(lastCommittedAt)).getTime() < cutoffMs) {
                   core.info(`Skipping #${pull['number']} (${pull['title']}) - within threshold`);
                   return;
                 }
@@ -97,16 +107,16 @@ jobs:
                   owner: repoOwner,
                   repo: repoName,
                   issue_number: pull['number'],
-                  body: `**\`Access on Demand\`** - request closed and branch deleted due to inactivity for at least ${{ inputs.expiry_hours }} hours`,
+                  body: `**\`Access on Demand\`** - request closed and branch deleted due to inactivity (no new commit) for at least ${{ inputs.expiry_hours }} hours`,
                 });
 
-                core.info(`Deleting branch ${pull['head']['ref']}`);
+                core.info(`Deleting branch ${ref}`);
 
                 // Delete branch.
                 await github.rest.git.deleteRef({
                   owner: repoOwner,
                   repo: repoName,
-                  ref: `heads/${pull['head']['ref']}`,
+                  ref: `heads/${ref}`,
                 });
               } else {
                 core.info(`Skipping #${pull['number']} (${pull['title']}) - not an AOD request`);
