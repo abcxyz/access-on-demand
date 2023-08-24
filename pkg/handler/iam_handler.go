@@ -110,10 +110,10 @@ func NewIAMHandler(ctx context.Context, organizationsClient, foldersClient, proj
 }
 
 // Cleanup removes expired IAM bindings added by AOD from the IAM policies of the resources in the request.
-func (h *IAMHandler) Cleanup(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps []*v1alpha1.IAMResponse, retErr error) {
-	expiry := r.StartTime.Add(r.Duration)
+func (h *IAMHandler) Cleanup(ctx context.Context, r *v1alpha1.IAMRequest) (nps []*v1alpha1.IAMResponse, retErr error) {
 	for _, p := range r.ResourcePolicies {
-		np, err := h.handlePolicy(ctx, p, expiry, h.cleanupExpiredBindings)
+		// time.Now() is a dummy parameter used to match the function signature.
+		np, err := h.handlePolicy(ctx, p, time.Now(), h.cleanupExpiredBindings)
 		if err != nil {
 			retErr = errors.Join(
 				retErr,
@@ -269,7 +269,7 @@ func (h *IAMHandler) addAndCleanupPolicy(ctx context.Context, p *iampb.Policy, b
 // Removal errors should be handled separately such as in a global IAM cleanup.
 // bs and expiry parameters are not used, they are here to match the
 // updatePolicy func signature.
-func (h *IAMHandler)cleanupExpiredBindings(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
+func (h *IAMHandler) cleanupExpiredBindings(ctx context.Context, p *iampb.Policy, bs []*v1alpha1.Binding, expiry time.Time) {
 	logger := logging.FromContext(ctx)
 	var keep []*iampb.Binding
 	for _, b := range p.Bindings {

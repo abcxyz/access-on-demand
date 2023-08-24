@@ -1111,7 +1111,7 @@ func TestCleanup(t *testing.T) {
 		organizationsServer     *fakeServer
 		foldersServer           *fakeServer
 		projectsServer          *fakeServer
-		request                 *v1alpha1.IAMRequestWrapper
+		request                 *v1alpha1.IAMRequest
 		wantPolicies            []*v1alpha1.IAMResponse
 		wantErrSubstr           string
 		wantOrganizationsPolicy *iampb.Policy
@@ -1143,24 +1143,20 @@ func TestCleanup(t *testing.T) {
 			projectsServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
-			request: &v1alpha1.IAMRequestWrapper{
-				IAMRequest: &v1alpha1.IAMRequest{
-					ResourcePolicies: []*v1alpha1.ResourcePolicy{
-						{
-							Resource: "organizations/foo",
-							Bindings: []*v1alpha1.Binding{
-								{
-									Members: []string{
-										"user:test-org-userA@example.com",
-									},
-									Role: "roles/bigquery.dataViewer",
+			request: &v1alpha1.IAMRequest{
+				ResourcePolicies: []*v1alpha1.ResourcePolicy{
+					{
+						Resource: "organizations/foo",
+						Bindings: []*v1alpha1.Binding{
+							{
+								Members: []string{
+									"user:test-org-userA@example.com",
 								},
+								Role: "roles/bigquery.dataViewer",
 							},
 						},
 					},
 				},
-				Duration:  2 * time.Hour,
-				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
@@ -1200,24 +1196,20 @@ func TestCleanup(t *testing.T) {
 			projectsServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
-			request: &v1alpha1.IAMRequestWrapper{
-				IAMRequest: &v1alpha1.IAMRequest{
-					ResourcePolicies: []*v1alpha1.ResourcePolicy{
-						{
-							Resource: "organizations/foo",
-							Bindings: []*v1alpha1.Binding{
-								{
-									Members: []string{
-										"user:test-org-userA@example.com",
-									},
-									Role: "roles/bigquery.dataViewer",
+			request: &v1alpha1.IAMRequest{
+				ResourcePolicies: []*v1alpha1.ResourcePolicy{
+					{
+						Resource: "organizations/foo",
+						Bindings: []*v1alpha1.Binding{
+							{
+								Members: []string{
+									"user:test-org-userA@example.com",
 								},
+								Role: "roles/bigquery.dataViewer",
 							},
 						},
 					},
 				},
-				Duration:  2 * time.Hour,
-				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
@@ -1279,24 +1271,20 @@ func TestCleanup(t *testing.T) {
 			projectsServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
-			request: &v1alpha1.IAMRequestWrapper{
-				IAMRequest: &v1alpha1.IAMRequest{
-					ResourcePolicies: []*v1alpha1.ResourcePolicy{
-						{
-							Resource: "organizations/foo",
-							Bindings: []*v1alpha1.Binding{
-								{
-									Members: []string{
-										"user:test-org-userA@example.com",
-									},
-									Role: "roles/bigquery.dataViewer",
+			request: &v1alpha1.IAMRequest{
+				ResourcePolicies: []*v1alpha1.ResourcePolicy{
+					{
+						Resource: "organizations/foo",
+						Bindings: []*v1alpha1.Binding{
+							{
+								Members: []string{
+									"user:test-org-userA@example.com",
 								},
+								Role: "roles/bigquery.dataViewer",
 							},
 						},
 					},
 				},
-				Duration:  2 * time.Hour,
-				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
@@ -1355,24 +1343,20 @@ func TestCleanup(t *testing.T) {
 			projectsServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
-			request: &v1alpha1.IAMRequestWrapper{
-				IAMRequest: &v1alpha1.IAMRequest{
-					ResourcePolicies: []*v1alpha1.ResourcePolicy{
-						{
-							Resource: "folders/bar",
-							Bindings: []*v1alpha1.Binding{
-								{
-									Members: []string{
-										"user:test-folder-user@example.com",
-									},
-									Role: "roles/cloudkms.cryptoOperator",
+			request: &v1alpha1.IAMRequest{
+				ResourcePolicies: []*v1alpha1.ResourcePolicy{
+					{
+						Resource: "folders/bar",
+						Bindings: []*v1alpha1.Binding{
+							{
+								Members: []string{
+									"user:test-folder-user@example.com",
 								},
+								Role: "roles/cloudkms.cryptoOperator",
 							},
 						},
 					},
 				},
-				Duration:  2 * time.Hour,
-				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
@@ -1414,41 +1398,37 @@ func TestCleanup(t *testing.T) {
 			projectsServer: &fakeServer{
 				policy: &iampb.Policy{},
 			},
-			request: &v1alpha1.IAMRequestWrapper{
-				IAMRequest: &v1alpha1.IAMRequest{
-					ResourcePolicies: []*v1alpha1.ResourcePolicy{
-						{
-							Resource: "organizations/foo",
-							Bindings: []*v1alpha1.Binding{
-								{
-									Members: []string{
-										"user:test-org-userA@example.com",
-										"user:test-org-userB@example.com",
-									},
-									Role: "roles/accessapproval.approver",
+			request: &v1alpha1.IAMRequest{
+				ResourcePolicies: []*v1alpha1.ResourcePolicy{
+					{
+						Resource: "organizations/foo",
+						Bindings: []*v1alpha1.Binding{
+							{
+								Members: []string{
+									"user:test-org-userA@example.com",
+									"user:test-org-userB@example.com",
 								},
+								Role: "roles/accessapproval.approver",
 							},
 						},
-						{
-							Resource: "projects/baz",
-							Bindings: []*v1alpha1.Binding{
-								{
-									Members: []string{
-										"user:test-project-user@example.com",
-									},
-									Role: "roles/bigquery.dataViewer",
+					},
+					{
+						Resource: "projects/baz",
+						Bindings: []*v1alpha1.Binding{
+							{
+								Members: []string{
+									"user:test-project-user@example.com",
 								},
+								Role: "roles/bigquery.dataViewer",
 							},
 						},
 					},
 				},
-				Duration:  2 * time.Hour,
-				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
 					Resource: "projects/baz",
-					Policy: &iampb.Policy{},
+					Policy:   &iampb.Policy{},
 				},
 			},
 			wantErrSubstr:           "Get IAM policy encountered error: Internal Server Error",
@@ -1470,40 +1450,36 @@ func TestCleanup(t *testing.T) {
 				policy:          &iampb.Policy{},
 				setIAMPolicyErr: fmt.Errorf("Set IAM policy encountered error: Internal Server Error"),
 			},
-			request: &v1alpha1.IAMRequestWrapper{
-				IAMRequest: &v1alpha1.IAMRequest{
-					ResourcePolicies: []*v1alpha1.ResourcePolicy{
-						{
-							Resource: "folders/bar",
-							Bindings: []*v1alpha1.Binding{
-								{
-									Members: []string{
-										"user:test-folder-user@example.com",
-									},
-									Role: "roles/cloudkms.cryptoOperator",
+			request: &v1alpha1.IAMRequest{
+				ResourcePolicies: []*v1alpha1.ResourcePolicy{
+					{
+						Resource: "folders/bar",
+						Bindings: []*v1alpha1.Binding{
+							{
+								Members: []string{
+									"user:test-folder-user@example.com",
 								},
+								Role: "roles/cloudkms.cryptoOperator",
 							},
 						},
-						{
-							Resource: "projects/baz",
-							Bindings: []*v1alpha1.Binding{
-								{
-									Members: []string{
-										"user:test-project-user@example.com",
-									},
-									Role: "roles/bigquery.dataViewer",
+					},
+					{
+						Resource: "projects/baz",
+						Bindings: []*v1alpha1.Binding{
+							{
+								Members: []string{
+									"user:test-project-user@example.com",
 								},
+								Role: "roles/bigquery.dataViewer",
 							},
 						},
 					},
 				},
-				Duration:  1 * time.Hour,
-				StartTime: now,
 			},
 			wantPolicies: []*v1alpha1.IAMResponse{
 				{
 					Resource: "folders/bar",
-					Policy: &iampb.Policy{},
+					Policy:   &iampb.Policy{},
 				},
 			},
 			wantErrSubstr:           "Set IAM policy encountered error: Internal Server Error",
