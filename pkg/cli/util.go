@@ -15,10 +15,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 
+	"github.com/abcxyz/access-on-demand/pkg/handler"
 	"gopkg.in/yaml.v3"
+
+	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
 
 // encodeYaml writes YAML encoding of v to w.
@@ -39,4 +43,43 @@ func encodeYaml(w io.Writer, v any) error {
 // printHeader prints the hearder to w.
 func printHeader(w io.Writer, header string) {
 	fmt.Fprintf(w, "------%s------\n", header)
+}
+
+func newIAMHandler(ctx context.Context, customConditionTitle string) (*handler.IAMHandler, error) {
+	// Create resource manager clients.
+	organizationsClient, err := resourcemanager.NewOrganizationsClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create organizations client: %w", err)
+	}
+	defer organizationsClient.Close()
+
+	foldersClient, err := resourcemanager.NewFoldersClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create folders client: %w", err)
+	}
+	defer foldersClient.Close()
+
+	projectsClient, err := resourcemanager.NewProjectsClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create projects client: %w", err)
+	}
+	defer projectsClient.Close()
+
+	var opts []handler.Option
+	if customConditionTitle != "" {
+		opts = append(opts, handler.WithCustomConditionTitle(customConditionTitle))
+	}
+
+	// Create IAMHandler with the clients.
+	h, err := handler.NewIAMHandler(
+		ctx,
+		organizationsClient,
+		foldersClient,
+		projectsClient,
+		opts...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create IAM handler: %w", err)
+	}
+	return h, nil
 }

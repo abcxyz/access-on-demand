@@ -19,12 +19,9 @@ import (
 	"fmt"
 
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
-	"github.com/abcxyz/access-on-demand/pkg/handler"
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/posener/complete/v2/predict"
-
-	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
 
 var _ cli.Command = (*IAMCleanupCommand)(nil)
@@ -43,13 +40,17 @@ type IAMCleanupCommand struct {
 
 	flagVerbose bool
 
+	// Optional custom condition title as AOD bindings identifier, required for
+	// integration test.
+	flagCustomConditionTitle string
+
 	// testHandler is used for testing only.
 	testHandler iamCleanupHandler
 }
 
 func (c *IAMCleanupCommand) Desc() string {
-	return `Cleanup of the IAM request YAML file in the given path, which ` +
-		`removes bindings in the request and expired AOD bindings from the IAM policy`
+	return "Clean up the IAM bindings requested in the given request YAML file " +
+		"along with other expired AOD IAM bindings"
 }
 
 func (c *IAMCleanupCommand) Help() string {
@@ -77,14 +78,22 @@ func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagPath,
 		Example: "/path/to/file.yaml",
 		Predict: predict.Files("*"),
-		Usage:   `The path of IAM request file, in YAML format.`,
+		Usage:   "The path of IAM request file, in YAML format.",
 	})
 
 	f.BoolVar(&cli.BoolVar{
 		Name:    "verbose",
 		Target:  &c.flagVerbose,
 		Default: false,
-		Usage:   `Turn on verbose mode to print updated IAM policies. Note that it may contain sensitive information`,
+		Usage:   "Turn on verbose mode to print updated IAM policies. Note that it may contain sensitive information.",
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "custom-condition-title",
+		Target:  &c.flagCustomConditionTitle,
+		Hidden:  true,
+		Example: "foo-aod-expiry",
+		Usage:   "The custom title for the aod expiry condition.",
 	})
 
 	return set
@@ -119,38 +128,14 @@ func (c *IAMCleanupCommand) cleanupIAM(ctx context.Context) error {
 	}
 
 	var h iamCleanupHandler
+	var newHandlerErr error
 	if c.testHandler != nil {
 		// Use testHandler if it is for testing.
 		h = c.testHandler
 	} else {
-		// Create resource manager clients.
-		organizationsClient, err := resourcemanager.NewOrganizationsClient(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to create organizations client: %w", err)
-		}
-		defer organizationsClient.Close()
-
-		foldersClient, err := resourcemanager.NewFoldersClient(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to create folders client: %w", err)
-		}
-		defer foldersClient.Close()
-
-		projectsClient, err := resourcemanager.NewProjectsClient(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to create projects client: %w", err)
-		}
-		defer projectsClient.Close()
-
-		// Create IAMHandler with the clients.
-		h, err = handler.NewIAMHandler(
-			ctx,
-			organizationsClient,
-			foldersClient,
-			projectsClient,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create IAM handler: %w", err)
+		h, newHandlerErr = newIAMHandler(ctx, c.flagCustomConditionTitle)
+		if newHandlerErr != nil {
+			return newHandlerErr
 		}
 	}
 
@@ -159,7 +144,7 @@ func (c *IAMCleanupCommand) cleanupIAM(ctx context.Context) error {
 	// expression of some IAM bindings, it does not necessarily mean that it
 	// failed to cleanup the requested bindings.
 	if err != nil {
-		return fmt.Errorf("encountered error when cleanning up IAM policy: %w", err)
+		return fmt.Errorf("failed to clean up IAM policy: %w", err)
 	}
 
 	printHeader(c.Stdout(), "Successfully Removed Requested Bindings")

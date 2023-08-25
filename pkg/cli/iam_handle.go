@@ -20,12 +20,9 @@ import (
 	"time"
 
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
-	"github.com/abcxyz/access-on-demand/pkg/handler"
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/posener/complete/v2/predict"
-
-	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
 
 var _ cli.Command = (*IAMHandleCommand)(nil)
@@ -158,44 +155,14 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 	}
 
 	var h iamHandler
+	var newHandlerErr error
 	if c.testHandler != nil {
 		// Use testHandler if it is for testing.
 		h = c.testHandler
 	} else {
-		// Create resource manager clients.
-		organizationsClient, err := resourcemanager.NewOrganizationsClient(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to create organizations client: %w", err)
-		}
-		defer organizationsClient.Close()
-
-		foldersClient, err := resourcemanager.NewFoldersClient(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to create folders client: %w", err)
-		}
-		defer foldersClient.Close()
-
-		projectsClient, err := resourcemanager.NewProjectsClient(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to create projects client: %w", err)
-		}
-		defer projectsClient.Close()
-
-		var opts []handler.Option
-		if c.flagCustomConditionTitle != "" {
-			opts = append(opts, handler.WithCustomConditionTitle(c.flagCustomConditionTitle))
-		}
-
-		// Create IAMHandler with the clients.
-		h, err = handler.NewIAMHandler(
-			ctx,
-			organizationsClient,
-			foldersClient,
-			projectsClient,
-			opts...,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create IAM handler: %w", err)
+		h, newHandlerErr = newIAMHandler(ctx, c.flagCustomConditionTitle)
+		if newHandlerErr != nil {
+			return newHandlerErr
 		}
 	}
 
