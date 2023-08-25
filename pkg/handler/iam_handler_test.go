@@ -1119,6 +1119,139 @@ func TestCleanup(t *testing.T) {
 		wantProjectsPolicy      *iampb.Policy
 	}{
 		{
+			name: "mixed_bindings",
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{
+					Bindings: []*iampb.Binding{
+						// Non-AOD binding to be kept.
+						{
+							Members: []string{
+								"user:test-folder-user@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+						},
+						// Non-requester unexpired binding to be kept.
+						{
+							Members: []string{
+								"user:test-org-userA@example.com",
+							},
+							Role: "roles/accessapproval.viewer",
+							Condition: &expr.Expr{
+								Title:      defaultConditionTitle,
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
+							},
+						},
+						// Requester unexpired bindings to be removed.
+						{
+							Members: []string{
+								"user:test-org-userB@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+							Condition: &expr.Expr{
+								Title:      defaultConditionTitle,
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
+							},
+						},
+						// Non-requester expired binding to be removed.
+						{
+							Members: []string{
+								"user:test-org-userC@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+							Condition: &expr.Expr{
+								Title:      defaultConditionTitle,
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
+							},
+						},
+						// Requester expired binding to be removed.
+						{
+							Members: []string{
+								"user:test-org-userD@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+							Condition: &expr.Expr{
+								Title:      defaultConditionTitle,
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(-1*time.Hour).Format(time.RFC3339)),
+							},
+						},
+					},
+				},
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			request: &v1alpha1.IAMRequest{
+				ResourcePolicies: []*v1alpha1.ResourcePolicy{
+					{
+						Resource: "organizations/foo",
+						Bindings: []*v1alpha1.Binding{
+							{
+								Members: []string{
+									"user:test-org-userB@example.com",
+									"user:test-org-userD@example.com",
+								},
+								Role: "roles/accessapproval.approver",
+							},
+						},
+					},
+				},
+			},
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "organizations/foo",
+					Policy: &iampb.Policy{
+						Bindings: []*iampb.Binding{
+							// Non-AOD binding kept.
+							{
+								Members: []string{
+									"user:test-folder-user@example.com",
+								},
+								Role: "roles/accessapproval.approver",
+							},
+							// Non-requester unexpired binding kept.
+							{
+								Members: []string{
+									"user:test-org-userA@example.com",
+								},
+								Role: "roles/accessapproval.viewer",
+								Condition: &expr.Expr{
+									Title:      defaultConditionTitle,
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantOrganizationsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					// Non-AOD binding kept.
+					{
+						Members: []string{
+							"user:test-folder-user@example.com",
+						},
+						Role: "roles/accessapproval.approver",
+					},
+					// Non-requester unexpired binding kept.
+					{
+						Members: []string{
+							"user:test-org-userA@example.com",
+						},
+						Role: "roles/accessapproval.viewer",
+						Condition: &expr.Expr{
+							Title:      defaultConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
+						},
+					},
+				},
+			},
+			wantFoldersPolicy:  &iampb.Policy{},
+			wantProjectsPolicy: &iampb.Policy{},
+		},
+		{
 			name: "clean_up_expired_bindings",
 			organizationsServer: &fakeServer{
 				policy: &iampb.Policy{
@@ -1440,6 +1573,81 @@ func TestCleanup(t *testing.T) {
 					},
 				},
 			},
+			wantProjectsPolicy: &iampb.Policy{},
+		},
+		{
+			name: "ignore_non_requester_unexpired_bindings",
+			organizationsServer: &fakeServer{
+				policy: &iampb.Policy{
+					Bindings: []*iampb.Binding{
+						{
+							Members: []string{
+								"user:test-org-userB@example.com",
+							},
+							Role: "roles/accessapproval.approver",
+							Condition: &expr.Expr{
+								Title:      defaultConditionTitle,
+								Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
+							},
+						},
+					},
+				},
+			},
+			foldersServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			projectsServer: &fakeServer{
+				policy: &iampb.Policy{},
+			},
+			request: &v1alpha1.IAMRequest{
+				ResourcePolicies: []*v1alpha1.ResourcePolicy{
+					{
+						Resource: "organizations/foo",
+						Bindings: []*v1alpha1.Binding{
+							{
+								Members: []string{
+									"user:test-org-userA@example.com",
+								},
+								Role: "roles/bigquery.dataViewer",
+							},
+						},
+					},
+				},
+			},
+			wantPolicies: []*v1alpha1.IAMResponse{
+				{
+					Resource: "organizations/foo",
+					Policy: &iampb.Policy{
+						Bindings: []*iampb.Binding{
+							{
+								Members: []string{
+									"user:test-org-userB@example.com",
+								},
+								Role: "roles/accessapproval.approver",
+								Condition: &expr.Expr{
+									Title:      defaultConditionTitle,
+									Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantOrganizationsPolicy: &iampb.Policy{
+				Bindings: []*iampb.Binding{
+					{
+						Members: []string{
+							"user:test-org-userB@example.com",
+						},
+						Role: "roles/accessapproval.approver",
+						Condition: &expr.Expr{
+							Title:      defaultConditionTitle,
+							Expression: fmt.Sprintf("request.time < timestamp('%s')", now.Add(1*time.Hour).Format(time.RFC3339)),
+						},
+					},
+				},
+			},
+			wantFoldersPolicy:  &iampb.Policy{},
 			wantProjectsPolicy: &iampb.Policy{},
 		},
 		{

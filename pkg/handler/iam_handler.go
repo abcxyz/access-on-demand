@@ -256,14 +256,8 @@ func (h *IAMHandler) cleanupBindings(ctx context.Context, p *iampb.Policy, bs []
 			continue
 		}
 
-		// Check the expiration using expression directly instead of the given
-		// expiry as they may be different.
 		expired, err := expired(b.Condition.Expression)
 		if err != nil {
-			// Continue policy update when there is error checking the AOD expiry and
-			// return the errors.
-			// Cleaning up expired AOD bindings here is best effort.
-			// We rely on a separate process to clean up AOD bindings.
 			retErr = errors.Join(retErr, fmt.Errorf("failed to check expiry: %w", err))
 		}
 		// Remove expired bindings.
