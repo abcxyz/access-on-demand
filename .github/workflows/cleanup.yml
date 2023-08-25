@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Reusable workflow that handles tool request cleanup.
-name: 'aod-tool-cleanup'
+# Reusable workflow that handles AOD request cleanup.
+name: 'aod-cleanup'
 
 on:
   workflow_call:
@@ -38,6 +38,8 @@ on:
         required: false
 
 env:
+  IAM_ERROR_FILENAME: '/tmp/iam_error.txt'
+  IAM_OUT_FILENAME: '/tmp/iam_output.txt'
   TOOL_ERROR_FILENAME: '/tmp/tool_error.txt'
   TOOL_OUT_FILENAME: '/tmp/tool_output.txt'
 
@@ -78,7 +80,7 @@ jobs:
       contents: 'read'
       id-token: 'write'
       pull-requests: 'write'
-    name: 'Handle Tool Request Cleanup'
+    name: 'Handle AOD Request Cleanup'
     steps:
       - name: 'Checkout Triggering Branch'
         uses: 'actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab' # ratchet:actions/checkout@v3
@@ -95,20 +97,31 @@ jobs:
           service_account: '${{ inputs.service_account }}'
           token_format: 'access_token'
       # Install gcloud, `setup-gcloud` automatically picks up authentication from `auth`.
-      - name: 'Set up Cloud SDK'
+      - name: 'Set up Cloud SDK for tool request'
+        if: '${{ hashFiles(''tool.yaml'') != '''' }}'
         uses: 'google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b' # ratchet:google-github-actions/setup-gcloud@v1
       - name: 'Install AOD CLI'
         run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
-      - name: 'Handle cleanup'
+      - name: 'Handle tool cleanup'
+        if: '${{ hashFiles(''tool.yaml'') != '''' }}'
         id: 'cleanup_tool'
         env:
-          FILE_PATH: '${{ github.workspace }}/tool.yaml'
+          TOOL_FILE_PATH: '${{ github.workspace }}/tool.yaml'
         run: |
           touch ${{ env.TOOL_ERROR_FILENAME }} ${{ env.TOOL_OUT_FILENAME }}
-          aod tool cleanup -path ${{ env.FILE_PATH }} \
+          aod tool cleanup -path ${{ env.TOOL_FILE_PATH }} \
           2> ${{ env.TOOL_ERROR_FILENAME }} \
           > ${{ env.TOOL_OUT_FILENAME }}
-      # TODO (#79): Output only executed commands.
+      - name: 'Handle IAM cleanup'
+        if: '${{ hashFiles(''iam.yaml'') != '''' }}'
+        id: 'cleanup_iam'
+        env:
+          IAM_FILE_PATH: '${{ github.workspace }}/iam.yaml'
+        run: |
+          touch ${{ env.IAM_ERROR_FILENAME }} ${{ env.IAM_OUT_FILENAME }}
+          aod iam cleanup -path ${{ env.IAM_FILE_PATH }} \
+          2> ${{ env.IAM_ERROR_FILENAME }} \
+          > ${{ env.IAM_OUT_FILENAME }}
       - name: 'Tool Request Cleanup Comment'
         if: '${{ always() }}'
         uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
@@ -162,7 +175,7 @@ jobs:
             \`\`\`
             </details>`;
                 break;
-              // step cancelled/skipped, should not happen if the triggering event is correct.
+              // step cancelled/skipped.
               default:
                 // Do nothing.
                 break;
@@ -176,3 +189,99 @@ jobs:
                 body: body,
               });
             }
+      - name: 'IAM Request Cleanup Comment'
+        if: '${{ always() }}'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          github-token: '${{ github.token }}'
+          retries: '3'
+          script: |+
+            var body, req;
+            const fs = require("fs");
+            const outcome = '${{ steps.cleanup_iam.outcome }}';
+            switch (outcome) {
+              case 'success':
+                req = fs.readFileSync(
+                  `${{ env.IAM_OUT_FILENAME }}`,
+                  { encoding: "utf8" }
+                );
+
+              body = `**\`Access on Demand\`** - 🟩 **\`IAM\`** request cleanup succeeded.
+
+            <details>
+            <summary>Details</summary>
+            Removed bindings in the request below.
+
+            \`\`\`
+            ${req}
+            \`\`\`
+            </details>`;
+                break;
+              case 'failure':
+                req = fs.readFileSync(
+                  `${{ env.IAM_OUT_FILENAME }}`,
+                  { encoding: "utf8" }
+                );
+                const error = fs.readFileSync(
+                  `${{ env.IAM_ERROR_FILENAME }}`,
+                  { encoding: "utf8" }
+                );
+                body = `**\`Access on Demand\`** - 🟥 **\`IAM\`** request cleanup failed.
+
+            <details>
+            <summary>Details</summary>
+            Failed to cleanup IAM polices of the resources in the request below.
+
+            \`\`\`
+            ${req}
+            \`\`\`
+
+            Error:
+            \`\`\`
+            ${error}
+            \`\`\`
+            </details>`;
+                break;
+              // step cancelled/skipped.
+              default:
+                // Do nothing.
+                break;
+            }
+
+            if (typeof body !== "undefined") {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: ${{ github.event.pull_request.number }},
+                body: body,
+              });
+            }
+      # Separate step for request not found, as we cannot tell from step outcome
+      # whether the cleanup step is skipped because of request file not found or
+      # previous step failures.
+      - name: 'IAM Request Not Found Comment'
+        if: '${{ always() && hashFiles(''iam.yaml'') == '''' }}'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          github-token: '${{ github.token }}'
+          retries: '3'
+          script: |+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ github.event.pull_request.number }},
+              body: `**\`Access on Demand\`** - 🟦 **\`IAM\`** request not found, skip cleanup.`,
+            });
+      - name: 'Tool Request Not Found Comment'
+        if: '${{ always() && hashFiles(''tool.yaml'') == '''' }}'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          github-token: '${{ github.token }}'
+          retries: '3'
+          script: |+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ github.event.pull_request.number }},
+              body: `**\`Access on Demand\`** - 🟦 **\`Tool\`** request not found, skip cleanup.`,
+            });
