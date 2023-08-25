@@ -21,6 +21,7 @@ import (
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
+	"github.com/abcxyz/pkg/logging"
 	"github.com/posener/complete/v2/predict"
 )
 
@@ -117,6 +118,8 @@ func (c *IAMCleanupCommand) Run(ctx context.Context, args []string) error {
 }
 
 func (c *IAMCleanupCommand) cleanupIAM(ctx context.Context) error {
+	logger := logging.FromContext(ctx)
+
 	// Read request from file path.
 	var req v1alpha1.IAMRequest
 	if err := requestutil.ReadRequestFromPath(c.flagPath, &req); err != nil {
@@ -128,15 +131,20 @@ func (c *IAMCleanupCommand) cleanupIAM(ctx context.Context) error {
 	}
 
 	var h iamCleanupHandler
-	var newHandlerErr error
 	if c.testHandler != nil {
 		// Use testHandler if it is for testing.
 		h = c.testHandler
 	} else {
-		h, newHandlerErr = newIAMHandler(ctx, c.flagCustomConditionTitle)
+		iamHandler, closer, newHandlerErr := newIAMHandler(ctx, c.flagCustomConditionTitle)
 		if newHandlerErr != nil {
 			return newHandlerErr
 		}
+		h = iamHandler
+		defer func() {
+			if err := closer.Close(); err != nil {
+				logger.ErrorContext(ctx, "failed to close", "error", err)
+			}
+		}()
 	}
 
 	resp, err := h.Cleanup(ctx, &req)
