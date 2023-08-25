@@ -17,7 +17,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
@@ -26,52 +25,50 @@ import (
 	"github.com/posener/complete/v2/predict"
 )
 
-var _ cli.Command = (*IAMHandleCommand)(nil)
+var _ cli.Command = (*IAMCleanupCommand)(nil)
 
-// iamHandler interface that handles the IAMRequestWrapper.
-type iamHandler interface {
-	Do(context.Context, *v1alpha1.IAMRequestWrapper) ([]*v1alpha1.IAMResponse, error)
+// iamCleanupHandler interface that handles the cleanup of IAMRequest.
+type iamCleanupHandler interface {
+	Cleanup(context.Context, *v1alpha1.IAMRequest) ([]*v1alpha1.IAMResponse, error)
 }
 
-// IAMHandleCommand handles IAM requests.
-type IAMHandleCommand struct {
+// IAMCleanupCommand handles the cleanup of IAM requests, which removed the
+// requested bindings and expires AOD bindings from IAM policy.
+type IAMCleanupCommand struct {
 	cli.BaseCommand
 
 	flagPath string
 
-	flagDuration time.Duration
-
-	flagStartTime time.Time
-
 	flagVerbose bool
 
-	// Optional custom condition title for IAM bindings expiration, required for
+	// Optional custom condition title as AOD bindings identifier, required for
 	// integration test.
 	flagCustomConditionTitle string
 
 	// testHandler is used for testing only.
-	testHandler iamHandler
+	testHandler iamCleanupHandler
 }
 
-func (c *IAMHandleCommand) Desc() string {
-	return `Handle the IAM request YAML file in the given path`
+func (c *IAMCleanupCommand) Desc() string {
+	return "Clean up the IAM bindings requested in the given request YAML file " +
+		"along with other expired AOD IAM bindings"
 }
 
-func (c *IAMHandleCommand) Help() string {
+func (c *IAMCleanupCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
 
-Handle the IAM request YAML file in the given path:
+Cleanup of the IAM request YAML file in the given path:
 
-      {{ COMMAND }} -path "/path/to/file.yaml" -duration "2h" -start-time "2009-11-10T23:00:00Z"
+      {{ COMMAND }} -path "/path/to/file.yaml"
 
-Handle the IAM request YAML file and output applied IAM changes:
+Cleanup of the IAM request YAML file and output applied IAM changes:
 
-      {{ COMMAND }} -path "/path/to/file.yaml" -duration "2h" -start-time "2009-11-10T23:00:00Z" -verbose
+      {{ COMMAND }} -path "/path/to/file.yaml" -verbose
 `
 }
 
-func (c *IAMHandleCommand) Flags() *cli.FlagSet {
+func (c *IAMCleanupCommand) Flags() *cli.FlagSet {
 	set := c.NewFlagSet()
 
 	// Command options
@@ -82,30 +79,14 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagPath,
 		Example: "/path/to/file.yaml",
 		Predict: predict.Files("*"),
-		Usage:   `The path of IAM request file, in YAML format.`,
-	})
-
-	f.DurationVar(&cli.DurationVar{
-		Name:    "duration",
-		Target:  &c.flagDuration,
-		Example: "2h",
-		Usage:   `The IAM permission lifecycle, as a duration.`,
-	})
-
-	f.TimeVar(time.RFC3339, &cli.TimeVar{
-		Name:    "start-time",
-		Target:  &c.flagStartTime,
-		Example: "2009-11-10T23:00:00Z",
-		Default: time.Now().UTC(),
-		Usage: `The start time of the IAM permission lifecycle in RFC3339 format. ` +
-			`Default is current UTC time.`,
+		Usage:   "The path of IAM request file, in YAML format.",
 	})
 
 	f.BoolVar(&cli.BoolVar{
 		Name:    "verbose",
 		Target:  &c.flagVerbose,
 		Default: false,
-		Usage:   `Turn on verbose mode to print updated IAM policies. Note that it may contain sensitive information`,
+		Usage:   "Turn on verbose mode to print updated IAM policies. Note that it may contain sensitive information.",
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -113,13 +94,13 @@ func (c *IAMHandleCommand) Flags() *cli.FlagSet {
 		Target:  &c.flagCustomConditionTitle,
 		Hidden:  true,
 		Example: "foo-aod-expiry",
-		Usage:   `The custom title for the aod expiry condition.`,
+		Usage:   "The custom title for the aod expiry condition.",
 	})
 
 	return set
 }
 
-func (c *IAMHandleCommand) Run(ctx context.Context, args []string) error {
+func (c *IAMCleanupCommand) Run(ctx context.Context, args []string) error {
 	f := c.Flags()
 	if err := f.Parse(args); err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
@@ -133,18 +114,10 @@ func (c *IAMHandleCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("path is required")
 	}
 
-	if c.flagDuration <= 0 {
-		return fmt.Errorf("a positive duration is required")
-	}
-
-	if c.flagStartTime.Add(c.flagDuration).Before(time.Now()) {
-		return fmt.Errorf("expiry (start time + duration) already passed")
-	}
-
-	return c.handleIAM(ctx)
+	return c.cleanupIAM(ctx)
 }
 
-func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
+func (c *IAMCleanupCommand) cleanupIAM(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 
 	// Read request from file path.
@@ -157,7 +130,7 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 		return fmt.Errorf("failed to validate %T: %w", &req, err)
 	}
 
-	var h iamHandler
+	var h iamCleanupHandler
 	if c.testHandler != nil {
 		// Use testHandler if it is for testing.
 		h = c.testHandler
@@ -174,24 +147,21 @@ func (c *IAMHandleCommand) handleIAM(ctx context.Context) error {
 		}()
 	}
 
-	// Wrap IAMRequest to include Duration.
-	reqWrapper := &v1alpha1.IAMRequestWrapper{
-		IAMRequest: &req,
-		Duration:   c.flagDuration,
-		StartTime:  c.flagStartTime,
+	resp, err := h.Cleanup(ctx, &req)
+	// The error here might only be errrors of parsing the condition expiration
+	// expression of some IAM bindings, it does not necessarily mean that it
+	// failed to cleanup the requested bindings.
+	if err != nil {
+		return fmt.Errorf("failed to clean up IAM policy: %w", err)
 	}
 
-	resp, err := h.Do(ctx, reqWrapper)
-	if err != nil {
-		return fmt.Errorf("failed to handle IAM request: %w", err)
-	}
-	printHeader(c.Stdout(), "Successfully Handled IAM Request")
-	if err := encodeYaml(c.Stdout(), reqWrapper); err != nil {
+	printHeader(c.Stdout(), "Successfully Removed Requested Bindings")
+	if err := encodeYaml(c.Stdout(), &req); err != nil {
 		return fmt.Errorf("failed to output applied request: %w", err)
 	}
 
 	if c.flagVerbose {
-		printHeader(c.Stdout(), "Updated IAM Policies")
+		printHeader(c.Stdout(), "Cleaned Up IAM Policies")
 		if err := encodeYaml(c.Stdout(), resp); err != nil {
 			return fmt.Errorf("failed to output IAM policies: %w", err)
 		}

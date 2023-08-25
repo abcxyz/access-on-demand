@@ -15,10 +15,15 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 
+	"github.com/abcxyz/access-on-demand/pkg/handler"
+	"github.com/abcxyz/pkg/multicloser"
 	"gopkg.in/yaml.v3"
+
+	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 )
 
 // encodeYaml writes YAML encoding of v to w.
@@ -39,4 +44,45 @@ func encodeYaml(w io.Writer, v any) error {
 // printHeader prints the hearder to w.
 func printHeader(w io.Writer, header string) {
 	fmt.Fprintf(w, "------%s------\n", header)
+}
+
+func newIAMHandler(ctx context.Context, customConditionTitle string) (*handler.IAMHandler, *multicloser.Closer, error) {
+	var closer *multicloser.Closer
+
+	// Create resource manager clients.
+	organizationsClient, err := resourcemanager.NewOrganizationsClient(ctx)
+	if err != nil {
+		return nil, closer, fmt.Errorf("failed to create organizations client: %w", err)
+	}
+	closer = multicloser.Append(closer, organizationsClient.Close)
+
+	foldersClient, err := resourcemanager.NewFoldersClient(ctx)
+	if err != nil {
+		return nil, closer, fmt.Errorf("failed to create folders client: %w", err)
+	}
+	closer = multicloser.Append(closer, foldersClient.Close)
+
+	projectsClient, err := resourcemanager.NewProjectsClient(ctx)
+	if err != nil {
+		return nil, closer, fmt.Errorf("failed to create projects client: %w", err)
+	}
+	closer = multicloser.Append(closer, projectsClient.Close)
+
+	var opts []handler.Option
+	if customConditionTitle != "" {
+		opts = append(opts, handler.WithCustomConditionTitle(customConditionTitle))
+	}
+
+	// Create IAMHandler with the clients.
+	h, err := handler.NewIAMHandler(
+		ctx,
+		organizationsClient,
+		foldersClient,
+		projectsClient,
+		opts...,
+	)
+	if err != nil {
+		return nil, closer, fmt.Errorf("failed to create IAM handler: %w", err)
+	}
+	return h, closer, nil
 }
