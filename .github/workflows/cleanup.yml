@@ -124,43 +124,51 @@ jobs:
           aod iam cleanup -path ${{ env.IAM_FILE_PATH }} \
           2> ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }} \
           > ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}
-      - name: 'Tool Request Cleanup Comment'
-        if: '${{ always() }}'
+      - name: 'Tool Request Success Cleanup Comment'
+        if: '${{ always() && steps.cleanup_tool.outcome == ''success'' }}'
         uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
         with:
           github-token: '${{ github.token }}'
           retries: '3'
           script: |+
-            var body, req;
             const fs = require("fs");
-            const outcome = '${{ steps.cleanup_tool.outcome }}';
-            switch (outcome) {
-              case 'success':
-                req = fs.readFileSync(
-                  `${{ runner.temp }}/${{ env.TOOL_OUT_FILENAME }}`,
-                  { encoding: "utf8" }
-                );
-                body = `**\`Access on Demand\`** - 🟩 **\`Tool\`** request succeeded.
+
+            const toolOutFilename = "${{ runner.temp }}/${{ env.TOOL_OUT_FILENAME }}";
+            const req = fs.readFileSync(toolOutFilename, { encoding: "utf8" });
+
+            const body = `**\`Access on Demand\`** - 🟩 **\`Tool\`** request cleanup succeeded.
 
             <details>
             <summary>Details</summary>
-            Executed "cleanup" commands in the request below, or skipped if "cleanup" commands not found.
+            Executed "cleanup" commands in the request below, or skipped if commands not found.
 
             \`\`\`
             ${req}
             \`\`\`
             </details>`;
-                break;
-              case 'failure':
-                req = fs.readFileSync(
-                  `${{ runner.temp }}/${{ env.TOOL_OUT_FILENAME }}`,
-                  { encoding: "utf8" }
-                );
-                const error = fs.readFileSync(
-                  `${{ runner.temp }}/${{ env.TOOL_ERROR_FILENAME }}`,
-                  { encoding: "utf8" }
-                );
-                body = `**\`Access on Demand\`** - 🟥 **\`Tool\`** request failed.
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: "${{ github.event.pull_request.number }}",
+              body: body,
+            });
+      - name: 'Tool Request Failure Cleanup Comment'
+        if: '${{ always() && steps.cleanup_tool.outcome == ''failure'' }}'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          github-token: '${{ github.token }}'
+          retries: '3'
+          script: |+
+            const fs = require("fs");
+
+            const toolOutFilename = "${{ runner.temp }}/${{ env.TOOL_OUT_FILENAME }}";
+            const toolErrFilename = "${{ runner.temp }}/${{ env.TOOL_ERROR_FILENAME }}";
+
+            const req = fs.readFileSync(toolOutFilename, { encoding: "utf8" });
+            const error = fs.readFileSync(toolErrFilename, { encoding: "utf8" });
+
+            const body = `**\`Access on Demand\`** - 🟥 **\`Tool\`** request cleanup failed.
 
             <details>
             <summary>Details</summary>
@@ -175,38 +183,39 @@ jobs:
             ${error}
             \`\`\`
             </details>`;
-                break;
-              // step cancelled/skipped.
-              default:
-                // Do nothing.
-                break;
-            }
 
-            if (typeof body !== "undefined") {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: ${{ github.event.pull_request.number }},
-                body: body,
-              });
-            }
-      - name: 'IAM Request Cleanup Comment'
-        if: '${{ always() }}'
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: "${{ github.event.pull_request.number }}",
+              body: body,
+            });
+      - name: 'Tool Request Not Found Comment'
+        if: '${{ always() && hashFiles(''tool.yaml'') == '''' }}'
         uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
         with:
           github-token: '${{ github.token }}'
           retries: '3'
           script: |+
-            var body, req;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ github.event.pull_request.number }},
+              body: `**\`Access on Demand\`** - 🟦 **\`Tool\`** request not found, skip cleanup.`,
+            });
+      - name: 'IAM Request Success Cleanup Comment'
+        if: '${{ always() && steps.cleanup_iam.outcome == ''success'' }}'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          github-token: '${{ github.token }}'
+          retries: '3'
+          script: |+
             const fs = require("fs");
-            const outcome = '${{ steps.cleanup_iam.outcome }}';
-            switch (outcome) {
-              case 'success':
-                req = fs.readFileSync(
-                  `${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}`,
-                  { encoding: "utf8" }
-                );
-                body = `**\`Access on Demand\`** - 🟩 **\`IAM\`** request cleanup succeeded.
+
+            const iamOutFilename = "${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}";
+            const req = fs.readFileSync(iamOutFilename, { encoding: "utf8" });
+
+            const body = `**\`Access on Demand\`** - 🟩 **\`IAM\`** request cleanup succeeded.
 
             <details>
             <summary>Details</summary>
@@ -216,17 +225,29 @@ jobs:
             ${req}
             \`\`\`
             </details>`;
-                break;
-              case 'failure':
-                req = fs.readFileSync(
-                  `${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}`,
-                  { encoding: "utf8" }
-                );
-                const error = fs.readFileSync(
-                  `${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }}`,
-                  { encoding: "utf8" }
-                );
-                body = `**\`Access on Demand\`** - 🟥 **\`IAM\`** request cleanup failed.
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: "${{ github.event.pull_request.number }}",
+              body: body,
+            });
+      - name: 'IAM Request Failure Cleanup Comment'
+        if: '${{ always() && steps.cleanup_iam.outcome == ''failure'' }}'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          github-token: '${{ github.token }}'
+          retries: '3'
+          script: |+
+            const fs = require("fs");
+
+            const iamOutFilename = "${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}";
+            const iamErrFilename = "${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }}";
+
+            const req = fs.readFileSync(iamOutFilename, { encoding: "utf8" });
+            const error = fs.readFileSync(iamErrFilename, { encoding: "utf8" });
+
+            const body = `**\`Access on Demand\`** - 🟥 **\`IAM\`** request cleanup failed.
 
             <details>
             <summary>Details</summary>
@@ -241,24 +262,13 @@ jobs:
             ${error}
             \`\`\`
             </details>`;
-                break;
-              // step cancelled/skipped.
-              default:
-                // Do nothing.
-                break;
-            }
 
-            if (typeof body !== "undefined") {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: ${{ github.event.pull_request.number }},
-                body: body,
-              });
-            }
-      # Separate step for request not found, as we cannot tell from step outcome
-      # whether the cleanup step is skipped because of request file not found or
-      # previous step failures.
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: "${{ github.event.pull_request.number }}",
+              body: body,
+            });
       - name: 'IAM Request Not Found Comment'
         if: '${{ always() && hashFiles(''iam.yaml'') == '''' }}'
         uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
@@ -271,17 +281,4 @@ jobs:
               repo: context.repo.repo,
               issue_number: ${{ github.event.pull_request.number }},
               body: `**\`Access on Demand\`** - 🟦 **\`IAM\`** request not found, skip cleanup.`,
-            });
-      - name: 'Tool Request Not Found Comment'
-        if: '${{ always() && hashFiles(''tool.yaml'') == '''' }}'
-        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
-        with:
-          github-token: '${{ github.token }}'
-          retries: '3'
-          script: |+
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: ${{ github.event.pull_request.number }},
-              body: `**\`Access on Demand\`** - 🟦 **\`Tool\`** request not found, skip cleanup.`,
             });
