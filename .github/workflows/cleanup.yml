@@ -38,10 +38,10 @@ on:
         required: false
 
 env:
-  IAM_ERROR_FILENAME: '/tmp/iam_error.txt'
-  IAM_OUT_FILENAME: '/tmp/iam_output.txt'
-  TOOL_ERROR_FILENAME: '/tmp/tool_error.txt'
-  TOOL_OUT_FILENAME: '/tmp/tool_output.txt'
+  IAM_ERROR_FILENAME: 'iam_error.txt'
+  IAM_OUT_FILENAME: 'iam_output.txt'
+  TOOL_ERROR_FILENAME: 'tool_error.txt'
+  TOOL_OUT_FILENAME: 'tool_output.txt'
 
 jobs:
   # Check the current status of this pull request with respect to code review.
@@ -108,20 +108,22 @@ jobs:
         env:
           TOOL_FILE_PATH: '${{ github.workspace }}/tool.yaml'
         run: |
-          touch ${{ env.TOOL_ERROR_FILENAME }} ${{ env.TOOL_OUT_FILENAME }}
+          touch ${{ runner.temp }}/${{ env.TOOL_ERROR_FILENAME }}
+          touch ${{ runner.temp }}/${{ env.TOOL_OUT_FILENAME }}
           aod tool cleanup -path ${{ env.TOOL_FILE_PATH }} \
-          2> ${{ env.TOOL_ERROR_FILENAME }} \
-          > ${{ env.TOOL_OUT_FILENAME }}
+          2> ${{ runner.temp }}/${{ env.TOOL_ERROR_FILENAME }} \
+          > ${{ runner.temp }}/${{ env.TOOL_OUT_FILENAME }}
       - name: 'Handle IAM cleanup'
         if: '${{ hashFiles(''iam.yaml'') != '''' }}'
         id: 'cleanup_iam'
         env:
           IAM_FILE_PATH: '${{ github.workspace }}/iam.yaml'
         run: |
-          touch ${{ env.IAM_ERROR_FILENAME }} ${{ env.IAM_OUT_FILENAME }}
+          touch ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }}
+          touch ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}
           aod iam cleanup -path ${{ env.IAM_FILE_PATH }} \
-          2> ${{ env.IAM_ERROR_FILENAME }} \
-          > ${{ env.IAM_OUT_FILENAME }}
+          2> ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }} \
+          > ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}
       - name: 'Tool Request Cleanup Comment'
         if: '${{ always() }}'
         uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
@@ -135,11 +137,10 @@ jobs:
             switch (outcome) {
               case 'success':
                 req = fs.readFileSync(
-                  `${{ env.TOOL_OUT_FILENAME }}`,
+                  `${{ runner.temp }}/${{ env.TOOL_OUT_FILENAME }}`,
                   { encoding: "utf8" }
                 );
-
-              body = `**\`Access on Demand\`** - 🟩 **\`Tool\`** request succeeded.
+                body = `**\`Access on Demand\`** - 🟩 **\`Tool\`** request succeeded.
 
             <details>
             <summary>Details</summary>
@@ -152,11 +153,11 @@ jobs:
                 break;
               case 'failure':
                 req = fs.readFileSync(
-                  `${{ env.TOOL_OUT_FILENAME }}`,
+                  `${{ runner.temp }}/${{ env.TOOL_OUT_FILENAME }}`,
                   { encoding: "utf8" }
                 );
                 const error = fs.readFileSync(
-                  `${{ env.TOOL_ERROR_FILENAME }}`,
+                  `${{ runner.temp }}/${{ env.TOOL_ERROR_FILENAME }}`,
                   { encoding: "utf8" }
                 );
                 body = `**\`Access on Demand\`** - 🟥 **\`Tool\`** request failed.
@@ -202,11 +203,10 @@ jobs:
             switch (outcome) {
               case 'success':
                 req = fs.readFileSync(
-                  `${{ env.IAM_OUT_FILENAME }}`,
+                  `${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}`,
                   { encoding: "utf8" }
                 );
-
-              body = `**\`Access on Demand\`** - 🟩 **\`IAM\`** request cleanup succeeded.
+                body = `**\`Access on Demand\`** - 🟩 **\`IAM\`** request cleanup succeeded.
 
             <details>
             <summary>Details</summary>
@@ -219,11 +219,11 @@ jobs:
                 break;
               case 'failure':
                 req = fs.readFileSync(
-                  `${{ env.IAM_OUT_FILENAME }}`,
+                  `${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}`,
                   { encoding: "utf8" }
                 );
                 const error = fs.readFileSync(
-                  `${{ env.IAM_ERROR_FILENAME }}`,
+                  `${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }}`,
                   { encoding: "utf8" }
                 );
                 body = `**\`Access on Demand\`** - 🟥 **\`IAM\`** request cleanup failed.
