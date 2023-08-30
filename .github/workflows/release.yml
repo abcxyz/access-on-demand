@@ -22,8 +22,12 @@ on:
 concurrency: '${{ github.workflow }}-${{ github.head_ref || github.ref }}-release'
 
 jobs:
-  # TODO (#27): add ci job.
+  ci:
+    uses: 'abcxyz/access-on-demand/.github/workflows/ci.yml@main' # ratchet:exclude
+
   github-release:
+    # Run CI before the release
+    needs: ['ci']
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'write'
