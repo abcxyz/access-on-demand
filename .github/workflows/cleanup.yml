@@ -77,7 +77,8 @@ jobs:
     if: '${{ needs.review_status.outputs.REVIEW_DECISION == ''APPROVED'' }}'
     runs-on: 'ubuntu-latest'
     permissions:
-      contents: 'read'
+      # Required for closing a branch, see ref: https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
+      contents: 'write'
       id-token: 'write'
       pull-requests: 'write'
     name: 'Handle AOD Request Cleanup'
@@ -281,4 +282,17 @@ jobs:
               repo: context.repo.repo,
               issue_number: ${{ github.event.pull_request.number }},
               body: `**\`Access on Demand\`** - 🟦 **\`IAM\`** request not found, skip cleanup.`,
+            });
+      - name: 'Delete Branch'
+        # Only delete branch when cleanups are skipped or successfully handled.
+        if: '${{ always() && steps.cleanup_iam.outcome != ''failure'' && steps.cleanup_tool.outcome != ''failure'' }}'
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        with:
+          github-token: '${{ github.token }}'
+          retries: '3'
+          script: |+
+            await github.rest.git.deleteRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${{ github.event.pull_request.head.ref }}`,
             });
