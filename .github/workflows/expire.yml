@@ -27,22 +27,27 @@ on:
         type: 'number'
         default: 24
         required: false
+    outputs:
+      pulls:
+        description: "Information of the pull requests that are expired and closed."
+        value: '${{ jobs.expire.outputs.pulls }}'
 
 permissions:
   pull-requests: 'write'
-  # Required for closing a branch, see ref: https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
-  contents: 'write'
+  contents: 'read'
 
 jobs:
   expire:
     runs-on: 'ubuntu-latest'
+    outputs:
+      pulls: '${{ steps.expire_pr.outputs.result }}'
     steps:
-      - uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+      - id: expire_pr
+        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
         with:
-          # Token required for authentication when deleting a branch, see
-          # JavaScript example in ref: https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#delete-a-reference
+          # Token required for authentication when getting a branch, see
+          # JavaScript example in ref: https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#get-a-reference
           github-token: '${{ github.token }}'
-          result-encoding: 'string'
           retries: 3
           script: |-
             const parts = String('${{ inputs.repo }}').split('/')
@@ -66,7 +71,9 @@ jobs:
 
             core.info(`Found ${pulls.data.length} pulls`);
 
-            pulls.data.forEach(async (pull) => {
+            const expiredPulls = new Array();
+
+            await Promise.all(pulls.data.map(async (pull) => {
               const files = await github.rest.pulls.listFiles({
                 owner: repoOwner,
                 repo: repoName,
@@ -110,15 +117,10 @@ jobs:
                   body: `**\`Access on Demand\`** - request closed and branch deleted due to inactivity (no new commit) for at least ${{ inputs.expiry_hours }} hours`,
                 });
 
-                core.info(`Deleting branch ${ref}`);
-
-                // Delete branch.
-                await github.rest.git.deleteRef({
-                  owner: repoOwner,
-                  repo: repoName,
-                  ref: `heads/${ref}`,
-                });
+                expiredPulls.push({pullNumber: pull['number'], pullBranch: pull['head']['ref']})
               } else {
                 core.info(`Skipping #${pull['number']} (${pull['title']}) - not an AOD request`);
               }
-            });
+            }));
+
+            return expiredPulls;
