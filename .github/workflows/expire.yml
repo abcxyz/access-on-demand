@@ -29,7 +29,7 @@ on:
         required: false
     outputs:
       pulls:
-        description: "Information of the pull requests that are expired and closed."
+        description: 'Information of the pull requests that are expired and closed.'
         value: '${{ jobs.expire.outputs.pulls }}'
 
 permissions:
@@ -42,7 +42,7 @@ jobs:
     outputs:
       pulls: '${{ steps.expire_pr.outputs.result }}'
     steps:
-      - id: expire_pr
+      - id: 'expire_pr'
         uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
         with:
           # Token required for authentication when getting a branch, see

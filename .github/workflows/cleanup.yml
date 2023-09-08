@@ -37,11 +37,11 @@ on:
         default: '1.21'
         required: false
       pr_number:
-        description: "The number of the pull request that contains the AOD requests."
+        description: 'The number of the pull request that contains the AOD requests.'
         type: 'number'
         required: true
       branch:
-        description: "The branch of the pull request."
+        description: 'The branch of the pull request.'
         type: 'string'
         required: true
 
