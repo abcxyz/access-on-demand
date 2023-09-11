@@ -291,10 +291,18 @@ jobs:
               issue_number: ${{ inputs.pr_number }},
               body: `**\`Access on Demand\`** - 🟦 **\`IAM\`** request not found, skip cleanup.`,
             });
-      - name: 'Delete Branch'
-        # Only delete branch when cleanups are skipped or successfully handled.
-        if: '${{ steps.cleanup_iam.outcome != ''failure'' && steps.cleanup_tool.outcome != ''failure'' }}'
-        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+
+  delete_branch:
+    needs: 'cleanup'
+    # Delete branch after cleanup no matter if cleanup was skipped, succeeded or failed.
+    if: '${{ always() }}'
+    runs-on: 'ubuntu-latest'
+    permissions:
+      # Required for closing a branch, see ref: https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
+      contents: 'write'
+    name: 'Delete Branch'
+    steps:
+      - uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
         with:
           github-token: '${{ github.token }}'
           retries: '3'
