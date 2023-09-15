@@ -79,13 +79,13 @@ test do2
 			request: &v1alpha1.ToolRequest{
 				Tool: "echo",
 				Do: []string{
-					`test1; echo test2`,
+					`test do1; echo test do2`,
 				},
 			},
 			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
-echo test1
-test1`,
+echo test do1
+test do1`,
 		},
 		{
 			name: "invalid_tool",
@@ -201,13 +201,13 @@ test cleanup2
 			request: &v1alpha1.ToolRequest{
 				Tool: "echo",
 				Cleanup: []string{
-					`test1 && echo test2`,
+					`test cleanup1 && echo test cleanup2`,
 				},
 			},
 			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
-echo test1
-test1`,
+echo test cleanup1
+test cleanup1`,
 		},
 		{
 			name: "invalid_tool",
