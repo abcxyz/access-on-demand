@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/mattn/go-shellwords"
@@ -83,12 +84,11 @@ func (h *ToolHandler) Cleanup(ctx context.Context, r *v1alpha1.ToolRequest) erro
 
 func (h *ToolHandler) run(tool string, cmds []string) error {
 	for i, c := range cmds {
-		toolCmd := fmt.Sprintf("%s %s", tool, c)
-
 		args, err := shellwords.Parse(c)
 		if err != nil {
-			return fmt.Errorf("failed to parse cmd %q: %w", toolCmd, err)
+			return fmt.Errorf("failed to parse cmd %q: %w", c, err)
 		}
+		toolCmd := fmt.Sprintf("%s %s", tool, strings.Join(args, " "))
 		cmd := exec.Command(tool, args...)
 		// If stdout is set, it writes the command output to stdout.
 		if h.stdout != nil {

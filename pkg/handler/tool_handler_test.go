@@ -47,10 +47,10 @@ func TestToolHandlerDo(t *testing.T) {
 			},
 			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
-bash -c "echo test do1"
+bash -c echo test do1
 test do1
 
-bash -c "echo test do2"
+bash -c echo test do2
 test do2
 `,
 		},
@@ -75,17 +75,17 @@ test do2
 			expHandleErrSubStr: "failed to parse cmd",
 		},
 		{
-			name: "fail_to_run",
+			name: "chained_commands",
 			request: &v1alpha1.ToolRequest{
 				Tool: "echo",
 				Do: []string{
-					`test1 && test2`,
+					`test do1; echo test do2`,
 				},
 			},
 			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
-echo test1 && test2
-test1`,
+echo test do1
+test do1`,
 		},
 		{
 			name: "invalid_tool",
@@ -169,10 +169,10 @@ func TestToolHandlerCleanup(t *testing.T) {
 			},
 			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
-bash -c "echo test cleanup1"
+bash -c echo test cleanup1
 test cleanup1
 
-bash -c "echo test cleanup2"
+bash -c echo test cleanup2
 test cleanup2
 `,
 		},
@@ -197,17 +197,17 @@ test cleanup2
 			expHandleErrSubStr: "failed to parse cmd",
 		},
 		{
-			name: "fail_to_run",
+			name: "chained_commands",
 			request: &v1alpha1.ToolRequest{
 				Tool: "echo",
 				Cleanup: []string{
-					`test1 && test2`,
+					`test cleanup1 && echo test cleanup2`,
 				},
 			},
 			stdout: bytes.NewBuffer(nil),
 			expOutResponse: `
-echo test1 && test2
-test1`,
+echo test cleanup1
+test cleanup1`,
 		},
 		{
 			name: "invalid_tool",
