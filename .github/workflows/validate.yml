@@ -22,10 +22,9 @@ on:
   workflow_call:
     inputs:
       aod_cli_version:
-        description: 'The version of AOD CLI.'
+        description: 'The version of AOD CLI, without the "v" prefix, e.g. "0.1.2".'
         type: 'string'
-        default: 'latest'
-        required: false
+        required: true
       go_version:
         description: 'The version of Golang.'
         type: 'string'
@@ -48,8 +47,13 @@ jobs:
         uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
         with:
           go-version: '${{ inputs.go_version }}'
-      - name: 'Install AOD CLI'
-        run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
+      - name: 'Setup AOD'
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@def8ffd12d32b2e8656152b1eea46017dc8f8eaa' # ratchet:abcxyz/pkg/.github/actions/setup-binary@v0.7.0
+        with:
+          download_url: 'https://github.com/abcxyz/access-on-demand/releases/download/v${{ inputs.aod_cli_version }}/aod_${{ inputs.aod_cli_version }}_linux_amd64.tar.gz'
+          install_path: '${{ runner.temp }}/.aod'
+          cache_key: '${{ runner.os }}_${{ runner.arch }}_aod_${{ inputs.aod_cli_version }}'
+          add_to_path: true
       # IAM request will not be validated when iam.yaml file does not exist,
       # tool request will be not validated when tool.yaml file does not exist.
       - name: 'Validate AOD Request'
