@@ -48,7 +48,7 @@ jobs:
         with:
           go-version: '${{ inputs.go_version }}'
       - name: 'Setup AOD'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@main' # ratchet:exclude
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@def8ffd12d32b2e8656152b1eea46017dc8f8eaa' # ratchet:abcxyz/pkg/.github/actions/setup-binary@v0.7.0
         with:
           download_url: 'https://github.com/abcxyz/access-on-demand/releases/download/v${{ inputs.aod_cli_version }}/aod_${{ inputs.aod_cli_version }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.aod'
