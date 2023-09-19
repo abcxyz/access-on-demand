@@ -28,10 +28,9 @@ on:
         type: 'string'
         required: true
       aod_cli_version:
-        description: 'The version of AOD CLI.'
+        description: 'The version of AOD CLI, without the "v" prefix, e.g. "0.1.2".'
         type: 'string'
-        default: 'latest'
-        required: false
+        required: true
       go_version:
         description: 'The version of Golang.'
         type: 'string'
@@ -105,9 +104,14 @@ jobs:
       - name: 'Set up Cloud SDK'
         if: '${{ hashFiles(''tool.yaml'') != '''' }}'
         uses: 'google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b' # ratchet:google-github-actions/setup-gcloud@v1
-      - name: 'Install AOD CLI'
+      - name: 'Setup AOD'
         if: '${{ hashFiles(''iam.yaml'', ''tool.yaml'') != '''' }}'
-        run: 'go install github.com/abcxyz/access-on-demand/cmd/aod@${{ inputs.aod_cli_version }}'
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@main' # ratchet:exclude
+        with:
+          download_url: 'https://github.com/abcxyz/access-on-demand/releases/download/v${{ inputs.aod_cli_version }}/aod_${{ inputs.aod_cli_version }}_linux_amd64.tar.gz'
+          install_path: '${{ runner.temp }}/.aod'
+          cache_key: '${{ runner.os }}_${{ runner.arch }}_aod_${{ inputs.aod_cli_version }}'
+          add_to_path: true
       # Duration labels need to be prefixed with "duration-", an example is "duration-2h".
       - name: 'Get Duration From Label'
         if: '${{ hashFiles(''iam.yaml'') != '''' }}'

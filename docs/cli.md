@@ -8,7 +8,7 @@ as a tool proxy.
 ## Installation
 
 ```sh
-go install github.com/abcxyz/access-on-demand/cmd/aod
+go install github.com/abcxyz/access-on-demand/cmd/aod@latest
 ```
 
 ## Usage
