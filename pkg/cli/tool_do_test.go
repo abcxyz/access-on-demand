@@ -38,16 +38,11 @@ tool: 'gcloud'
 do:
   - 'do1'
   - 'do2'
-cleanup:
-  - 'cleanup1'
-  - 'cleanup2'
 `,
 		"invalid-request.yaml": `
 tool: 'tool_not_exist'
 do:
   - 'do'
-cleanup:
-  - 'cleanup'
 `,
 		"invalid.yaml": `bananas`,
 	}
@@ -55,7 +50,6 @@ cleanup:
 	validReq := &v1alpha1.ToolRequest{
 		Tool:    "gcloud",
 		Do:      []string{"do1", "do2"},
-		Cleanup: []string{"cleanup1", "cleanup2"},
 	}
 
 	injectErr := fmt.Errorf("injected error")
@@ -156,11 +150,6 @@ type fakeToolHandler struct {
 }
 
 func (h *fakeToolHandler) Do(ctx context.Context, req *v1alpha1.ToolRequest) error {
-	h.gotReq = req
-	return h.injectErr
-}
-
-func (h *fakeToolHandler) Cleanup(ctx context.Context, req *v1alpha1.ToolRequest) error {
 	h.gotReq = req
 	return h.injectErr
 }

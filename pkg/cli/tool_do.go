@@ -23,7 +23,7 @@ import (
 
 var _ cli.Command = (*ToolDoCommand)(nil)
 
-// ToolDoCommand handles tool requests "cleanup" commands.
+// ToolDoCommand handles tool requests "do" commands.
 type ToolDoCommand struct {
 	ToolBaseCommand
 }

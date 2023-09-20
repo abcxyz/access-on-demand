@@ -53,9 +53,6 @@ var RootCmd = func() cli.Command {
 						"do": func() cli.Command {
 							return &ToolDoCommand{}
 						},
-						"cleanup": func() cli.Command {
-							return &ToolCleanupCommand{}
-						},
 						"validate": func() cli.Command {
 							return &ToolValidateCommand{}
 						},

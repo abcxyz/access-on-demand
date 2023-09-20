@@ -28,7 +28,6 @@ import (
 // toolHandler interface that handles ToolRequest.
 type toolHandler interface {
 	Do(context.Context, *v1alpha1.ToolRequest) error
-	Cleanup(context.Context, *v1alpha1.ToolRequest) error
 }
 
 // ToolBaseCommand is the base command for handling tool requests.

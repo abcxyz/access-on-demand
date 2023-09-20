@@ -74,22 +74,13 @@ func NewToolHandler(ctx context.Context, opts ...ToolHandlerOption) *ToolHandler
 
 // Do runs the do commands.
 func (h *ToolHandler) Do(ctx context.Context, r *v1alpha1.ToolRequest) error {
-	return h.run(r.Tool, r.Do)
-}
-
-// Cleanup runs the cleanup commands.
-func (h *ToolHandler) Cleanup(ctx context.Context, r *v1alpha1.ToolRequest) error {
-	return h.run(r.Tool, r.Cleanup)
-}
-
-func (h *ToolHandler) run(tool string, cmds []string) error {
-	for i, c := range cmds {
+	for i, c := range r.Do {
 		args, err := shellwords.Parse(c)
 		if err != nil {
 			return fmt.Errorf("failed to parse cmd %q: %w", c, err)
 		}
-		toolCmd := fmt.Sprintf("%s %s", tool, strings.Join(args, " "))
-		cmd := exec.Command(tool, args...)
+		toolCmd := fmt.Sprintf("%s %s", r.Tool, strings.Join(args, " "))
+		cmd := exec.Command(r.Tool, args...)
 		// If stdout is set, it writes the command output to stdout.
 		if h.stdout != nil {
 			cmd.Stdout = h.stdout
@@ -100,7 +91,7 @@ func (h *ToolHandler) run(tool string, cmds []string) error {
 			return fmt.Errorf("failed to run command %q, error %w", toolCmd, err)
 		}
 		// Empty line in between commands.
-		if h.stdout != nil && i < (len(cmds)-1) {
+		if h.stdout != nil && i < (len(r.Do)-1) {
 			fmt.Fprint(cmd.Stdout, "\n")
 		}
 	}
