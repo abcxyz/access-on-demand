@@ -28,6 +28,8 @@ var (
 		'&': {},
 		'|': {},
 		'>': {},
+		'<': {},
+		';': {},
 	}
 )
 
@@ -92,13 +94,6 @@ func ValidateToolRequest(r *ToolRequest) (retErr error) {
 			if err := checkCommand(c); err != nil {
 				retErr = errors.Join(retErr, fmt.Errorf("do command %q is not valid: %w", c, err))
 			}
-		}
-	}
-
-	// Check if the cleanup commands are valid.
-	for _, c := range r.Cleanup {
-		if err := checkCommand(c); err != nil {
-			retErr = errors.Join(retErr, fmt.Errorf("cleanup command %q is not valid: %w", c, err))
 		}
 	}
 	return retErr

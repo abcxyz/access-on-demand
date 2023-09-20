@@ -224,20 +224,6 @@ func TestValidateToolRequest(t *testing.T) {
 					"run jobs execute my-job1",
 					"run jobs execute my-job2",
 				},
-				Cleanup: []string{
-					"run jobs executions delete my-execution1",
-					"run jobs executions delete my-execution2",
-				},
-			},
-		},
-		{
-			name: "success_without_cleanup_commands",
-			request: &ToolRequest{
-				Do: []string{
-					"run jobs execute my-job1",
-					"run jobs execute my-job2",
-				},
-				Cleanup: []string{},
 			},
 		},
 		{
@@ -245,10 +231,6 @@ func TestValidateToolRequest(t *testing.T) {
 			request: &ToolRequest{
 				Tool: "gcloud",
 				Do:   []string{},
-				Cleanup: []string{
-					"run jobs executions delete my-execution1",
-					"run jobs executions delete my-execution2",
-				},
 			},
 			wantErr: "do commands not found",
 		},
@@ -259,10 +241,6 @@ func TestValidateToolRequest(t *testing.T) {
 					"run jobs execute my-job1",
 					"run jobs execute my-job2",
 				},
-				Cleanup: []string{
-					"run jobs executions delete my-execution1",
-					"run jobs executions delete my-execution2",
-				},
 			},
 		},
 		{
@@ -271,9 +249,6 @@ func TestValidateToolRequest(t *testing.T) {
 				Tool: "aws",
 				Do: []string{
 					"run jobs execute my-job",
-				},
-				Cleanup: []string{
-					"run jobs executions delete my-execution",
 				},
 			},
 			wantErr: `tool "aws" is not supported`,
@@ -285,24 +260,9 @@ func TestValidateToolRequest(t *testing.T) {
 					`run
 jobs execute my-job && rmdir dir`,
 				},
-				Cleanup: []string{
-					"run jobs executions delete my-execution",
-				},
 			},
 			wantErr: `disallowed command character '&' at 2:20
 disallowed command character '&' at 2:21`,
-		},
-		{
-			name: "invalid_cleanup_command",
-			request: &ToolRequest{
-				Do: []string{
-					"run jobs execute my-job",
-				},
-				Cleanup: []string{
-					"storage cat gs://bucket/secrets.txt > my-file.txt",
-				},
-			},
-			wantErr: `disallowed command character '>' at 1:36`,
 		},
 	}
 

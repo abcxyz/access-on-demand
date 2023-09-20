@@ -21,7 +21,4 @@ type ToolRequest struct {
 
 	// List of commands without tool name.
 	Do []string `yaml:"do,omitempty"`
-
-	// List of cleanup commands without tool name to run after "do" is completed.
-	Cleanup []string `yaml:"cleanup,omitempty"`
 }
