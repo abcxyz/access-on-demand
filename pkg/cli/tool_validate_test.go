@@ -36,16 +36,11 @@ tool: 'gcloud'
 do:
   - 'do1'
   - 'do2'
-cleanup:
-  - 'cleanup1'
-  - 'cleanup2'
 `,
 		"invalid-request.yaml": `
 tool: 'tool_not_exist'
 do:
   - 'do'
-cleanup:
-  - 'cleanup'
 `,
 		"invalid.yaml":    `bananas`,
 		"empty-file.yaml": ``,
