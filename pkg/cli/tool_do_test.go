@@ -48,8 +48,8 @@ do:
 	}
 
 	validReq := &v1alpha1.ToolRequest{
-		Tool:    "gcloud",
-		Do:      []string{"do1", "do2"},
+		Tool: "gcloud",
+		Do:   []string{"do1", "do2"},
 	}
 
 	injectErr := fmt.Errorf("injected error")

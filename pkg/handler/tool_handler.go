@@ -74,13 +74,14 @@ func NewToolHandler(ctx context.Context, opts ...ToolHandlerOption) *ToolHandler
 
 // Do runs the do commands.
 func (h *ToolHandler) Do(ctx context.Context, r *v1alpha1.ToolRequest) error {
+	tool := r.Tool
 	for i, c := range r.Do {
 		args, err := shellwords.Parse(c)
 		if err != nil {
 			return fmt.Errorf("failed to parse cmd %q: %w", c, err)
 		}
-		toolCmd := fmt.Sprintf("%s %s", r.Tool, strings.Join(args, " "))
-		cmd := exec.Command(r.Tool, args...)
+		toolCmd := fmt.Sprintf("%s %s", tool, strings.Join(args, " "))
+		cmd := exec.Command(tool, args...)
 		// If stdout is set, it writes the command output to stdout.
 		if h.stdout != nil {
 			cmd.Stdout = h.stdout
