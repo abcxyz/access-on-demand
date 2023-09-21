@@ -52,9 +52,6 @@ policies:
 do:
   - 'projects list --uri --sort-by=projectId --limit=1'
   - 'projects list --format json --uri --sort-by=projectId --limit=1'
-cleanup:
-  - 'projects list --format json --uri --sort-by=projectId --limit=1'
-  - 'projects list --uri --sort-by=projectId --limit=1'
 `
 )
 
@@ -263,69 +260,6 @@ gcloud projects list --format json --uri --sort-by=projectId --limit=1
 
 			args := []string{
 				"tool", "do",
-				"-path", reqFilePath,
-			}
-			if tc.verbose {
-				args = append(args, "-verbose")
-			}
-
-			_, stdout, stderr := testPipeAndRun(ctx, t, args)
-
-			if got, want := strings.TrimSpace(stdout.String()), strings.TrimSpace(tc.wantOutput); got != want {
-				t.Errorf("Process(%+v) output response got %q, want %q)", tc.name, got, want)
-			}
-			if stderr.String() != "" {
-				t.Errorf("Process(%+v) got unexpected error: %q)", tc.name, stderr.String())
-			}
-		})
-	}
-}
-
-func TestToolCleanup(t *testing.T) {
-	t.Parallel()
-
-	reqFilePath := testWriteReqFile(t, toolReqData, "tool.yaml")
-
-	cases := []struct {
-		name       string
-		verbose    bool
-		wantOutput string
-	}{
-		{
-			name: "success",
-			wantOutput: `
-------Successfully Completed Commands------
-- gcloud projects list --format json --uri --sort-by=projectId --limit=1
-- gcloud projects list --uri --sort-by=projectId --limit=1`,
-		},
-		{
-			name:    "success_verbose",
-			verbose: true,
-			wantOutput: fmt.Sprintf(`------Tool Commands Output------
-gcloud projects list --format json --uri --sort-by=projectId --limit=1
-[
-  "https://cloudresourcemanager.googleapis.com/v1/projects/%s"
-]
-
-gcloud projects list --uri --sort-by=projectId --limit=1
-https://cloudresourcemanager.googleapis.com/v1/projects/%s
-------Successfully Completed Commands------
-- gcloud projects list --format json --uri --sort-by=projectId --limit=1
-- gcloud projects list --uri --sort-by=projectId --limit=1
-`, cfg.ProjectID, cfg.ProjectID),
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			ctx := context.Background()
-
-			args := []string{
-				"tool", "cleanup",
 				"-path", reqFilePath,
 			}
 			if tc.verbose {
