@@ -37,14 +37,16 @@ jobs:
         run: |
           echo "### Inputs" >> $GITHUB_STEP_SUMMARY
           echo "- tag: ${{ inputs.tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "- branch: ${{ inputs.branch }}" >> $GITHUB_STEP_SUMMARY
-          echo "- annotated tag: ${{ inputs.annotated_tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "- message: ${{ inputs.message }}" >> $GITHUB_STEP_SUMMARY
+          echo "- branch: ${{ github.event.repository.default_branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- annotated tag: true" >> $GITHUB_STEP_SUMMARY
+          echo "- message: ${{ inputs.message || inputs.tag }}" >> $GITHUB_STEP_SUMMARY
 
   create_tag:
     needs: 'print-inputs'
     permissions:
-      contents: 'write'
+      # Job need OIDC for token minter to work, see ref:
+      # https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#adding-permissions-settings
+      id-token: 'write'
     uses: 'abcxyz/pkg/.github/workflows/create-tag.yml@main' # ratchet:exclude
     with:
       tag: '${{ inputs.tag }}'
