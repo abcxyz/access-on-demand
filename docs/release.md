@@ -11,8 +11,8 @@ We leverage [goreleaser](https://goreleaser.com/) for SCM (GitHub) release, see
 ```sh
 go get -u && go mod tidy
 ```
--   Create a tag using `.github/workflows/create-tag.yml` and run the workflow
-    with below inputs.
+-   Create a tag using `.github/workflows/create-tag.yml` on default branch and
+    run the workflow with below inputs.
 
     -   tag name with format `v0.x.x`, using semantic versioning.
         -   If there are breaking changes, bump the major version.
@@ -20,8 +20,7 @@ go get -u && go mod tidy
             version.
         -   Nothing important, bump the patch version.
         -   Feel free to use suffixes -alpha, -beta and -rc as needed.
-    -   annotated tag: `true`
-    -   skip to use defaults for branch (repo default branch) and message (tag name).
+    -   skip to use default message (tag name).
 
 -   The new created tag should trigger the release workflow which typically does
     two things:
