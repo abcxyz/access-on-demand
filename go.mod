@@ -13,7 +13,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	google.golang.org/api v0.138.0
 	google.golang.org/genproto v0.0.0-20230815205213-6bfd019c3878
-	google.golang.org/grpc v1.57.0
+	google.golang.org/grpc v1.57.1
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v3 v3.0.1
 )
