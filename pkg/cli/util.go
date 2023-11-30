@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/abcxyz/access-on-demand/pkg/handler"
-	"github.com/abcxyz/pkg/multicloser"
+	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 	"gopkg.in/yaml.v3"
 
-	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
+	"github.com/abcxyz/access-on-demand/pkg/handler"
+	"github.com/abcxyz/pkg/multicloser"
 )
 
 // encodeYaml writes YAML encoding of v to w.

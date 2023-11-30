@@ -19,11 +19,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/posener/complete/v2/predict"
+
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/posener/complete/v2/predict"
 )
 
 var _ cli.Command = (*IAMHandleCommand)(nil)

@@ -27,13 +27,13 @@ import (
 	"time"
 
 	"cloud.google.com/go/iam/apiv1/iampb"
-	"github.com/abcxyz/access-on-demand/pkg/cli"
+	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/sethvargo/go-retry"
 	"google.golang.org/genproto/googleapis/type/expr"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
+	"github.com/abcxyz/access-on-demand/pkg/cli"
 )
 
 const (

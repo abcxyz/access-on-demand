@@ -18,11 +18,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/posener/complete/v2/predict"
+
 	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/abcxyz/access-on-demand/pkg/handler"
 	"github.com/abcxyz/access-on-demand/pkg/requestutil"
 	"github.com/abcxyz/pkg/cli"
-	"github.com/posener/complete/v2/predict"
 )
 
 // toolHandler interface that handles ToolRequest.
