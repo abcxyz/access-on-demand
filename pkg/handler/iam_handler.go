@@ -25,11 +25,12 @@ import (
 	"time"
 
 	"cloud.google.com/go/iam/apiv1/iampb"
-	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
-	"github.com/abcxyz/pkg/logging"
 	"github.com/googleapis/gax-go/v2"
 	"github.com/sethvargo/go-retry"
 	"google.golang.org/genproto/googleapis/type/expr"
+
+	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
+	"github.com/abcxyz/pkg/logging"
 )
 
 var (

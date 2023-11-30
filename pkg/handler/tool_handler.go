@@ -23,8 +23,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 	"github.com/mattn/go-shellwords"
+
+	"github.com/abcxyz/access-on-demand/apis/v1alpha1"
 )
 
 // ToolHandler runs tool commands in the ToolRequest.
