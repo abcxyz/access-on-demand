@@ -25,7 +25,7 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestIAMValidateCommand(t *testing.T) {
+func TestReadRequestFromPath(t *testing.T) {
 	t.Parallel()
 
 	// Set up IAM request file.
@@ -54,6 +54,15 @@ policies:
       role: roles/bigquery.dataViewer
 `,
 		"invalid.yaml": `bananas`,
+		"unknown_field.yaml": `
+policies:
+- resource: projects/baz
+  bindings:
+    - members:
+      - user:test-project-user@example.com
+      role: roles/bigquery.dataViewer
+foo: bar
+`,
 	}
 	dir := t.TempDir()
 	for name, content := range requestFileContentByName {
@@ -126,6 +135,26 @@ policies:
 			name:   "invalid_yaml",
 			path:   filepath.Join(dir, "invalid.yaml"),
 			expReq: &v1alpha1.IAMRequest{},
+			expErr: "failed to unmarshal yaml to *v1alpha1.IAMRequest",
+		},
+		{
+			name: "unknown_field",
+			path: filepath.Join(dir, "unknown_field.yaml"),
+			expReq: &v1alpha1.IAMRequest{
+				ResourcePolicies: []*v1alpha1.ResourcePolicy{
+					{
+						Resource: "projects/baz",
+						Bindings: []*v1alpha1.Binding{
+							{
+								Members: []string{
+									"user:test-project-user@example.com",
+								},
+								Role: "roles/bigquery.dataViewer",
+							},
+						},
+					},
+				},
+			},
 			expErr: "failed to unmarshal yaml to *v1alpha1.IAMRequest",
 		},
 	}
