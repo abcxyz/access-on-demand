@@ -138,8 +138,8 @@ foo: bar
 			expErr: "failed to unmarshal yaml to *v1alpha1.IAMRequest",
 		},
 		{
-			name:   "unknown_field",
-			path:   filepath.Join(dir, "unknown_field.yaml"),
+			name: "unknown_field",
+			path: filepath.Join(dir, "unknown_field.yaml"),
 			expReq: &v1alpha1.IAMRequest{
 				ResourcePolicies: []*v1alpha1.ResourcePolicy{
 					{
