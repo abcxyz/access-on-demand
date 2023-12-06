@@ -16,6 +16,7 @@
 package requestutil
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -37,8 +38,12 @@ func ReadRequestFromPath(path string, req any) error {
 		return fmt.Errorf("failed to read file content at %q, %w", path, err)
 	}
 
-	if err := yaml.Unmarshal(data, req); err != nil {
-		return fmt.Errorf("failed to unmarshal yaml to %T: %w", req, err)
+	if len(data) > 0 {
+		dec := yaml.NewDecoder(bytes.NewReader(data))
+		dec.KnownFields(true)
+		if err := dec.Decode(req); err != nil {
+			return fmt.Errorf("failed to unmarshal yaml to %T: %w", req, err)
+		}
 	}
 
 	return nil
