@@ -32,6 +32,7 @@ var _ cli.Command = (*ToolDoCommand)(nil)
 type toolHandler interface {
 	Do(context.Context, *v1alpha1.ToolRequest) error
 }
+
 // ToolDoCommand handles tool requests "do" commands.
 type ToolDoCommand struct {
 	cli.BaseCommand
