@@ -122,11 +122,7 @@ do:
 
 			ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
 
-			cmd := ToolDoCommand{
-				ToolBaseCommand: ToolBaseCommand{
-					testHandler: tc.testHandler,
-				},
-			}
+			cmd := ToolDoCommand{testHandler: tc.testHandler}
 			_, stdout, _ := cmd.Pipe()
 
 			args := append([]string{}, tc.args...)
