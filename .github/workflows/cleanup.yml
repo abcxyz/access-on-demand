@@ -120,8 +120,8 @@ jobs:
           touch ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }}
           touch ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}
           aod iam cleanup -path ${{ env.IAM_FILE_PATH }} \
-          2> ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }} \
-          > ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}
+          2> >(tee ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }} >&2) \
+          1> >(tee ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }})
       - name: 'IAM Request Success Cleanup Comment'
         if: '${{ always() && steps.cleanup_iam.outcome == ''success'' }}'
         uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
