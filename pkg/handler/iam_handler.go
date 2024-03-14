@@ -231,10 +231,10 @@ func (h *IAMHandler) addBindings(ctx context.Context, p *iampb.Policy, bs []*v1a
 			Role: r,
 		}
 		for m := range ms {
-			newBinding.Members = append(newBinding.Members, m)
+			newBinding.Members = append(newBinding.GetMembers(), m)
 		}
-		sort.Strings(newBinding.Members)
-		p.Bindings = append(p.Bindings, newBinding)
+		sort.Strings(newBinding.GetMembers())
+		p.Bindings = append(p.GetBindings(), newBinding)
 	}
 
 	// Set policy version to 3 to support conditional IAM bindings.
@@ -250,14 +250,14 @@ func (h *IAMHandler) cleanupBindings(ctx context.Context, p *iampb.Policy, bs []
 	// Convert new bindings to a role to unique bindings map.
 	bsMap := toBindingsMap(bs)
 	var keep []*iampb.Binding
-	for _, b := range p.Bindings {
+	for _, b := range p.GetBindings() {
 		// Keep non-AOD bindings.
-		if b.Condition == nil || b.Condition.Title != h.conditionTitle {
+		if b.GetCondition() == nil || b.GetCondition().GetTitle() != h.conditionTitle {
 			keep = append(keep, b)
 			continue
 		}
 
-		expired, err := expired(b.Condition.Expression)
+		expired, err := expired(b.GetCondition().GetExpression())
 		if err != nil {
 			retErr = errors.Join(retErr, fmt.Errorf("failed to check expiry: %w", err))
 		}
@@ -267,15 +267,15 @@ func (h *IAMHandler) cleanupBindings(ctx context.Context, p *iampb.Policy, bs []
 		}
 
 		// Keep roles that are not in the request.
-		if _, ok := bsMap[b.Role]; !ok {
+		if _, ok := bsMap[b.GetRole()]; !ok {
 			keep = append(keep, b)
 			continue
 		}
 
 		// Keep members from the binding if it is not in the request.
 		var nm []string
-		for _, m := range b.Members {
-			if _, ok := bsMap[b.Role][m]; !ok {
+		for _, m := range b.GetMembers() {
+			if _, ok := bsMap[b.GetRole()][m]; !ok {
 				nm = append(nm, m)
 			}
 		}

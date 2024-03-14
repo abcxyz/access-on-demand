@@ -1855,6 +1855,6 @@ func (s *fakeServer) SetIamPolicy(c context.Context, r *iampb.SetIamPolicyReques
 	if s.setIAMPolicyErr != nil {
 		return nil, s.setIAMPolicyErr
 	}
-	s.policy = r.Policy
+	s.policy = r.GetPolicy()
 	return s.policy, s.setIAMPolicyErr
 }
