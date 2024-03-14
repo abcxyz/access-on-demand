@@ -320,8 +320,8 @@ func testGetAndResetBindings(ctx context.Context, tb testing.TB, cfg *config, re
 			return retry.RetryableError(fmt.Errorf("failed to get IAM policy: %w", err))
 		}
 		var bs []*iampb.Binding
-		for _, b := range p.Bindings {
-			if b.Condition != nil && b.Condition.Title == cfg.ConditionTitle {
+		for _, b := range p.GetBindings() {
+			if b.GetCondition() != nil && b.GetCondition().GetTitle() == cfg.ConditionTitle {
 				result = append(result, b)
 				continue
 			}
