@@ -255,7 +255,7 @@ starttime: %s
 			name:    "expiry_passed",
 			args:    []string{"-path", filepath.Join(dir, "valid.yaml"), "-duration", "2h", "-start-time", "2009-11-10T23:00:00Z"},
 			handler: &fakeIAMHandler{},
-			expErr:  "expiry (start time + duration) already passed",
+			expErr:  `expiry (start time: "2009-11-10 23:00:00 +0000 UTC" + duration: "2h0m0s") already passed`,
 		},
 		{
 			name:    "invalid_yaml",
