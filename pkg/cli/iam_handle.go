@@ -139,7 +139,7 @@ func (c *IAMHandleCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	if c.flagStartTime.Add(c.flagDuration).Before(time.Now()) {
-		return fmt.Errorf("expiry (start time + duration) already passed")
+		return fmt.Errorf("expiry (start time: %q + duration: %q) already passed", c.flagStartTime, c.flagDuration)
 	}
 
 	return c.handleIAM(ctx)
