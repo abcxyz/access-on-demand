@@ -29,8 +29,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  WIF_PROVIDER: 'projects/1004827208550/locations/global/workloadIdentityPools/gh-automation-i-e66ce1/providers/gh-automation-i-e66ce1'
-  WIF_SERVICE_ACCOUNT: 'gh-automation-i-sa@gh-aod-ci-i-38c26b.iam.gserviceaccount.com'
+  WIF_PROVIDER: 'projects/27073502928/locations/global/workloadIdentityPools/github-automation/providers/access-on-demand-i'
+  WIF_SERVICE_ACCOUNT: 'github-automation-bot@gha-access-on-demand-i-74b940.iam.gserviceaccount.com'
   INTEG_TEST_PROJECT_ID: 'access-on-demand-i-12af76'
   INTEG_TEST_IAM_USER: 'user:aod-test-bot@tycho.joonix.net'
   TEST_INTEGRATION: 'true'
