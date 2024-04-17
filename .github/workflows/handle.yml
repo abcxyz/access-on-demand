@@ -149,7 +149,7 @@ jobs:
         env:
           DURATION: '${{ env.LABELED_DURATION || env.DEFAULT_DURATION }}'
           IAM_FILE_PATH: '${{ github.workspace }}/iam.yaml'
-          START_TIME: '${{ github.event.review.submitted_at }}'
+          START_TIME: '${{ github.event.review.submitted_at || github.event.pull_request.updated_at }}'
         run: |
           touch ${{ env.IAM_ERROR_FILENAME }} ${{ env.IAM_OUT_FILENAME }}
           aod iam handle \
