@@ -30,8 +30,8 @@ on:
 
 env:
   AOD_NOTE: >
-    ⛔️ <strong>This is an AOD request, and merging is NOT allowed.</strong> The request will be automatically applied once the code owners approve it. Please close the PR once you are finished or it will automatically be closed after ~${{ inputs.expiry_hours }} hours of it's last commit. Please <strong>DO NOT</strong> delete the branch manually, the branch will be automatically deleted once PR is closed. For more instructions, please see [here](${{ inputs.aod_instruction_link }}).
-
+    ⛔️ <strong>This is an AOD request, and merging is NOT allowed.</strong>
+    The request will be automatically applied once the code owners approve it.
     Please close the PR once you are finished or it will automatically be closed
     after ~${{ inputs.expiry_hours }} hours of it's last commit. Please
     <strong>DO NOT</strong> delete the branch manually, the branch will be
