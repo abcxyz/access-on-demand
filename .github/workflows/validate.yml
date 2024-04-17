@@ -40,15 +40,15 @@ jobs:
     name: 'Validate Request'
     steps:
       - name: 'Checkout Triggering Branch'
-        uses: 'actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab' # ratchet:actions/checkout@v3
+        uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
         with:
           ref: '${{ github.event.pull_request.head.ref }}'
       - name: 'Setup Go'
-        uses: 'actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568' # ratchet:actions/setup-go@v3
+        uses: 'actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491' # ratchet:actions/setup-go@v5
         with:
           go-version: '${{ inputs.go_version }}'
       - name: 'Setup AOD'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@def8ffd12d32b2e8656152b1eea46017dc8f8eaa' # ratchet:abcxyz/pkg/.github/actions/setup-binary@v0.7.0
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@e8ce6e3f1af546bb30008af2322b1fd6dd62c1e2' # ratchet:abcxyz/pkg/.github/actions/setup-binary@v1.0.4
         with:
           download_url: 'https://github.com/abcxyz/access-on-demand/releases/download/v${{ inputs.aod_cli_version }}/aod_${{ inputs.aod_cli_version }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.aod'
