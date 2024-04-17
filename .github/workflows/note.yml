@@ -30,8 +30,8 @@ on:
 
 env:
   AOD_NOTE: >
-    ⛔️ <strong>This is an AOD request, and merging is NOT allowed.</strong>
-    The request will be automatically applied once the code owners approve it.
+    ⛔️ <strong>This is an AOD request, and merging is NOT allowed.</strong> The request will be automatically applied once the code owners approve it. Please close the PR once you are finished or it will automatically be closed after ~${{ inputs.expiry_hours }} hours of it's last commit. Please <strong>DO NOT</strong> delete the branch manually, the branch will be automatically deleted once PR is closed. For more instructions, please see [here](${{ inputs.aod_instruction_link }}).
+
     Please close the PR once you are finished or it will automatically be closed
     after ~${{ inputs.expiry_hours }} hours of it's last commit. Please
     <strong>DO NOT</strong> delete the branch manually, the branch will be
@@ -50,7 +50,7 @@ jobs:
       - name: 'Add AOD Note'
         if: |-
           github.event_name == 'pull_request' && github.event.action == 'opened'
-        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
         with:
           github-token: '${{ github.token }}'
           retries: '3'
@@ -65,11 +65,11 @@ jobs:
       - name: 'Add AOD Breakglass Note'
         if: |-
           contains(github.event.pull_request.labels.*.name, 'aod-breakglass')
-        uses: 'actions/github-script@98814c53be79b1d30f795b907e553d8679345975' # ratchet:actions/github-script@v6
+        uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
         with:
           github-token: '${{ github.token }}'
           retries: '3'
-          script: |+
+          script: |
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
