@@ -128,6 +128,7 @@ jobs:
           install_path: '${{ runner.temp }}/.aod'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_aod_${{ inputs.aod_cli_version }}'
           add_to_path: true
+          binary_subpath: 'aod'
       # Duration labels need to be prefixed with "duration-", an example is "duration-2h".
       - name: 'Get Duration From Label'
         if: |-
