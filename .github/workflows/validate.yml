@@ -54,6 +54,7 @@ jobs:
           install_path: '${{ runner.temp }}/.aod'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_aod_${{ inputs.aod_cli_version }}'
           add_to_path: true
+          binary_subpath: 'aod'
       # IAM request will not be validated when iam.yaml file does not exist,
       # tool request will be not validated when tool.yaml file does not exist.
       - name: 'Validate AOD Request'
