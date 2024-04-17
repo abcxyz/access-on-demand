@@ -63,6 +63,18 @@ jobs:
           # See ref: https://docs.github.com/en/actions/using-workflows/using-github-cli-in-workflows
           GH_TOKEN: '${{ github.token }}'
         run: |
+          labelExists=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/abcxyz/aod-infra-gcp/pulls/44 \
+            --jq '.labels[] | select(.name == "aod-breakglass") | .name')
+
+          # if the breakglass label exists, return with BREAKGLASS decision
+          if [ ! -z $labelExists ]; then
+            echo REVIEW_DECISION=BREAKGLASS >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           repo=${{ github.repository }}
           reviewDecision="$(gh api graphql -F owner=${{ github.repository_owner }} -F name=${repo##*/} -F pr_number=${{ inputs.pr_number }} -f query='
             query($name: String!, $owner: String!, $pr_number: Int!) {
@@ -79,7 +91,8 @@ jobs:
   # Run IAM request cleanup when the pull request is approved.
   cleanup:
     needs: 'review_status'
-    if: '${{ needs.review_status.outputs.REVIEW_DECISION == ''APPROVED''}}'
+    if: |-
+      ${{ contains(fromJSON('["BREAKGLASS", "APPROVED"]'), needs.review_status.outputs.REVIEW_DECISION) }}
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -92,27 +105,32 @@ jobs:
         with:
           ref: '${{ inputs.branch }}'
       - name: 'Setup Go'
-        if: '${{ hashFiles(''iam.yaml'') != '''' }}'
+        if: |-
+          ${{ hashFiles('iam.yaml') != '' }}
         uses: 'actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491' # ratchet:actions/setup-go@v5
         with:
           go-version: '${{ inputs.go_version }}'
       - name: 'Authenticate to Google Cloud'
-        if: '${{ hashFiles(''iam.yaml'') != '''' }}'
+        if: |-
+          ${{ hashFiles('iam.yaml') != '' }}
         uses: 'google-github-actions/auth@55bd3a7c6e2ae7cf1877fd1ccb9d54c0503c457c' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ inputs.workload_identity_provider }}'
           service_account: '${{ inputs.service_account }}'
           token_format: 'access_token'
       - name: 'Setup AOD'
-        if: '${{ hashFiles(''iam.yaml'') != '''' }}'
+        if: |-
+          ${{ hashFiles('iam.yaml') != '' }}
         uses: 'abcxyz/pkg/.github/actions/setup-binary@e8ce6e3f1af546bb30008af2322b1fd6dd62c1e2' # ratchet:abcxyz/pkg/.github/actions/setup-binary@v1.0.4
         with:
           download_url: 'https://github.com/abcxyz/access-on-demand/releases/download/v${{ inputs.aod_cli_version }}/aod_${{ inputs.aod_cli_version }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.aod'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_aod_${{ inputs.aod_cli_version }}'
           add_to_path: true
+          binary_subpath: 'aod'
       - name: 'Handle IAM cleanup'
-        if: '${{ hashFiles(''iam.yaml'') != '''' }}'
+        if: |-
+          ${{ hashFiles('iam.yaml') != '' }}
         id: 'cleanup_iam'
         env:
           IAM_FILE_PATH: '${{ github.workspace }}/iam.yaml'
@@ -123,7 +141,8 @@ jobs:
           2> >(tee ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }} >&2) \
           1> >(tee ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }})
       - name: 'IAM Request Success Cleanup Comment'
-        if: '${{ always() && steps.cleanup_iam.outcome == ''success'' }}'
+        if: |-
+          ${{ always() && steps.cleanup_iam.outcome == 'success' }}
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
         with:
           github-token: '${{ github.token }}'
@@ -152,7 +171,8 @@ jobs:
               body: body,
             });
       - name: 'IAM Request Failure Cleanup Comment'
-        if: '${{ always() && steps.cleanup_iam.outcome == ''failure'' }}'
+        if: |-
+          ${{ always() && steps.cleanup_iam.outcome == 'failure' }}
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
         with:
           github-token: '${{ github.token }}'
@@ -189,7 +209,8 @@ jobs:
               body: body,
             });
       - name: 'IAM Request Not Found Comment'
-        if: '${{ always() && hashFiles(''iam.yaml'') == '''' }}'
+        if: |-
+          ${{ always() && hashFiles('iam.yaml') == '' }}
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
         with:
           github-token: '${{ github.token }}'
