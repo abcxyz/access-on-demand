@@ -42,7 +42,7 @@ require (
 	github.com/sethvargo/go-envconfig v0.9.0
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
-	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.11.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
