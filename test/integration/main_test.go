@@ -251,8 +251,6 @@ gcloud projects list --format json --uri --sort-by=projectId --limit=1
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
