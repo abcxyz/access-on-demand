@@ -1047,7 +1047,7 @@ func TestDo(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
+			ctx := t.Context()
 
 			fakeOrganizationsClient, fakeFoldersClient, fakeProjectsClient := setupFakeClients(
 				t,
@@ -1757,7 +1757,7 @@ func TestCleanup(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
+			ctx := t.Context()
 
 			fakeOrganizationsClient, fakeFoldersClient, fakeProjectsClient := setupFakeClients(
 				t,

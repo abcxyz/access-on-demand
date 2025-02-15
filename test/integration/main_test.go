@@ -97,7 +97,7 @@ func TestMain(m *testing.M) {
 func TestIAMHandleAndCleanup(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	reqFilePath := testWriteReqFile(t, iamReqData, "iam.yaml")
 
 	now := time.Now().UTC().Round(time.Second)
@@ -198,7 +198,7 @@ func TestIAMValidate(t *testing.T) {
 	reqFilePath := testWriteReqFile(t, iamReqData, "iam.yaml")
 	wantOutput := "Successfully validated IAM request"
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	args := []string{
 		"iam", "validate",
@@ -254,7 +254,7 @@ gcloud projects list --format json --uri --sort-by=projectId --limit=1
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
+			ctx := t.Context()
 
 			args := []string{
 				"tool", "do",
@@ -279,7 +279,7 @@ gcloud projects list --format json --uri --sort-by=projectId --limit=1
 func TestToolValidate(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	reqFilePath := testWriteReqFile(t, toolReqData, "tool.yaml")
 	wantOutput := "Successfully validated tool request"
 
