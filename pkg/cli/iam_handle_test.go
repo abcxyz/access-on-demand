@@ -288,7 +288,7 @@ starttime: %s
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
+			ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
 
 			var cmd IAMHandleCommand
 			cmd.testHandler = tc.handler

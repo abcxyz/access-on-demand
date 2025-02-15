@@ -17,7 +17,6 @@ package handler
 
 import (
 	"bytes"
-	"context"
 	"strings"
 	"testing"
 
@@ -118,7 +117,7 @@ test do1`,
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
+			ctx := t.Context()
 			stderr := bytes.NewBuffer(nil)
 			opts := []ToolHandlerOption{WithStderr(stderr)}
 			if tc.stdout != nil {
