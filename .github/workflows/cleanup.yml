@@ -121,7 +121,7 @@ jobs:
       - name: 'Setup AOD'
         if: |-
           ${{ hashFiles('iam.yaml') != '' }}
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@6ec157b5c891a6ed2e006ec220f8e00db0e79855' # ratchet:abcxyz/pkg/.github/actions/setup-binary@v1.2.0
+        uses: 'abcxyz/pkg/.github/actions/setup-binary@43bee81badc75711ecc31fde22a14c0cf720704e' # ratchet:abcxyz/pkg/.github/actions/setup-binary@v1.4.0
         with:
           download_url: 'https://github.com/abcxyz/access-on-demand/releases/download/v${{ inputs.aod_cli_version }}/aod_${{ inputs.aod_cli_version }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.aod'
