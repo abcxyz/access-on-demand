@@ -222,7 +222,7 @@ jobs:
 
             <details>
             <summary>Details</summary>
-            Added below IAM permissions, and they will be expired in ${{ env.LABELED_DURATION || env.DEFAULT_DURATION }}.
+            Added below IAM permissions, and they will be expired in ${{ env.DURATION || env.LABELED_DURATION || env.DEFAULT_DURATION }}.
 
             \`\`\`
             ${req}
