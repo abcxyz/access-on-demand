@@ -63,10 +63,12 @@ jobs:
           # See ref: https://docs.github.com/en/actions/using-workflows/using-github-cli-in-workflows
           GH_TOKEN: '${{ github.token }}'
         run: |
+          repo=${{ github.repository }}
+          echo $repo
           labelExists=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/abcxyz/aod-infra-gcp/pulls/44 \
+            /repos/${{ github.repository_owner }}/${repo##*/}/pulls/${{ inputs.pr_number }} \
             --jq '.labels[] | select(.name == "aod-breakglass") | .name')
 
           # if the breakglass label exists, return with BREAKGLASS decision
@@ -75,7 +77,6 @@ jobs:
             exit 0
           fi
 
-          repo=${{ github.repository }}
           reviewDecision="$(gh api graphql -F owner=${{ github.repository_owner }} -F name=${repo##*/} -F pr_number=${{ inputs.pr_number }} -f query='
             query($name: String!, $owner: String!, $pr_number: Int!) {
               repository(owner: $owner, name: $name) {
