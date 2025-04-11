@@ -64,11 +64,10 @@ jobs:
           GH_TOKEN: '${{ github.token }}'
         run: |
           repo=${{ github.repository }}
-          echo $repo
           labelExists=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/${{ github.repository_owner }}/${repo##*/}/pulls/${{ inputs.pr_number }} \
+            /repos/$repo/pulls/${{ inputs.pr_number }} \
             --jq '.labels[] | select(.name == "aod-breakglass") | .name')
 
           # if the breakglass label exists, return with BREAKGLASS decision

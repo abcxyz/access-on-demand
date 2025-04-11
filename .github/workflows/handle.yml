@@ -83,7 +83,6 @@ jobs:
           ' --jq '.data.repository.pullRequest.reviewDecision')"
 
           echo REVIEW_DECISION=$reviewDecision >> $GITHUB_OUTPUT
-          echo $reviewDecision
 
   handle:
     # Only handle the request when the PR is already approved by qualified approvers.
