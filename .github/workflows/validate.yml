@@ -33,7 +33,7 @@ on:
 
 jobs:
   yaml_lint:
-    uses: 'abcxyz/pkg/.github/workflows/yaml-lint.yml@0d3628b4e36a87f4dae37b6a779c46d0995d9af6' # ratchet:exclude
+    uses: 'abcxyz/actions/.github/workflows/yaml-lint.yml@0d3628b4e36a87f4dae37b6a779c46d0995d9af6' # ratchet:exclude
 
   validate:
     runs-on: 'ubuntu-latest'
@@ -44,11 +44,11 @@ jobs:
         with:
           ref: '${{ github.event.pull_request.head.ref }}'
       - name: 'Setup Go'
-        uses: 'actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34' # ratchet:actions/setup-go@v5
+        uses: 'actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b' # ratchet:actions/setup-go@v5
         with:
           go-version: '${{ inputs.go_version }}'
       - name: 'Setup AOD'
-        uses: 'abcxyz/pkg/.github/actions/setup-binary@43bee81badc75711ecc31fde22a14c0cf720704e' # ratchet:abcxyz/pkg/.github/actions/setup-binary@v1.4.0
+        uses: 'abcxyz/actions/.github/actions/setup-binary@f48a2eb5903426eaaa7f565c6a0655813c7f2868' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/access-on-demand/releases/download/v${{ inputs.aod_cli_version }}/aod_${{ inputs.aod_cli_version }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.aod'
