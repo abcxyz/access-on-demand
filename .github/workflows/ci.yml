@@ -38,16 +38,16 @@ env:
 jobs:
   # Linting job - go.
   go_lint:
-    uses: 'abcxyz/pkg/.github/workflows/go-lint.yml@main' # ratchet:exclude
+    uses: 'abcxyz/actions/.github/workflows/go-lint.yml@main' # ratchet:exclude
     with:
       go_version: '1.21'
 
   yaml_lint:
-    uses: 'abcxyz/pkg/.github/workflows/yaml-lint.yml@main' # ratchet:exclude
+    uses: 'abcxyz/actions/.github/workflows/yaml-lint.yml@main' # ratchet:exclude
 
   # Unit tests - go
   go_test:
-    uses: 'abcxyz/pkg/.github/workflows/go-test.yml@main' # ratchet:exclude
+    uses: 'abcxyz/actions/.github/workflows/go-test.yml@main' # ratchet:exclude
     with:
       go_version: '1.21'
 
