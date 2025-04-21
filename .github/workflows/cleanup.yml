@@ -62,21 +62,22 @@ jobs:
           # Set the GH_TOKEN environment variable to use GitHub CLI in a GitHub Actions workflow.
           # See ref: https://docs.github.com/en/actions/using-workflows/using-github-cli-in-workflows
           GH_TOKEN: '${{ github.token }}'
+        shell: 'bash'
         run: |
-          repo=${{ github.repository }}
-          labelExists=$(gh api \
+          repo="${{ github.repository }}"
+          labelExists="$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             /repos/$repo/pulls/${{ inputs.pr_number }} \
-            --jq '.labels[] | select(.name == "aod-breakglass") | .name')
+            --jq '.labels[] | select(.name == "aod-breakglass") | .name')"
 
           # if the breakglass label exists, return with BREAKGLASS decision
-          if [ ! -z $labelExists ]; then
-            echo REVIEW_DECISION=BREAKGLASS >> $GITHUB_OUTPUT
+          if [[ -n "${labelExists}" ]]; then
+            echo "REVIEW_DECISION=BREAKGLASS" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
 
-          reviewDecision="$(gh api graphql -F owner=${{ github.repository_owner }} -F name=${repo##*/} -F pr_number=${{ inputs.pr_number }} -f query='
+          reviewDecision="$(gh api graphql -F owner="${{ github.repository_owner }}" -F name="${repo##*/}" -F pr_number="${{ inputs.pr_number }}" -f query='
             query($name: String!, $owner: String!, $pr_number: Int!) {
               repository(owner: $owner, name: $name) {
                 pullRequest(number: $pr_number) {
@@ -86,7 +87,7 @@ jobs:
             }
           ' --jq '.data.repository.pullRequest.reviewDecision')"
 
-          echo REVIEW_DECISION=$reviewDecision >> $GITHUB_OUTPUT
+          echo "REVIEW_DECISION=${reviewDecision}" >> "${GITHUB_OUTPUT}"
 
   # Run IAM request cleanup when the pull request is approved.
   cleanup:
@@ -104,12 +105,14 @@ jobs:
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
           ref: '${{ inputs.branch }}'
+
       - name: 'Setup Go'
         if: |-
           ${{ hashFiles('iam.yaml') != '' }}
         uses: 'actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b' # ratchet:actions/setup-go@v5
         with:
           go-version: '${{ inputs.go_version }}'
+
       - name: 'Authenticate to Google Cloud'
         if: |-
           ${{ hashFiles('iam.yaml') != '' }}
@@ -118,6 +121,7 @@ jobs:
           workload_identity_provider: '${{ inputs.workload_identity_provider }}'
           service_account: '${{ inputs.service_account }}'
           token_format: 'access_token'
+
       - name: 'Setup AOD'
         if: |-
           ${{ hashFiles('iam.yaml') != '' }}
@@ -128,6 +132,7 @@ jobs:
           cache_key: '${{ runner.os }}_${{ runner.arch }}_aod_${{ inputs.aod_cli_version }}'
           add_to_path: true
           binary_subpath: 'aod'
+
       - name: 'Handle IAM cleanup'
         if: |-
           ${{ hashFiles('iam.yaml') != '' }}
@@ -138,8 +143,9 @@ jobs:
           touch ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }}
           touch ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}
           aod iam cleanup -path ${{ env.IAM_FILE_PATH }} \
-          2> >(tee ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }} >&2) \
-          1> >(tee ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }})
+            2> >(tee ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }} >&2) \
+            1> >(tee ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }})
+
       - name: 'IAM Request Success Cleanup Comment'
         if: |-
           ${{ always() && steps.cleanup_iam.outcome == 'success' }}
@@ -170,6 +176,7 @@ jobs:
               issue_number: "${{ inputs.pr_number }}",
               body: body,
             });
+
       - name: 'IAM Request Failure Cleanup Comment'
         if: |-
           ${{ always() && steps.cleanup_iam.outcome == 'failure' }}
@@ -208,6 +215,7 @@ jobs:
               issue_number: "${{ inputs.pr_number }}",
               body: body,
             });
+
       - name: 'IAM Request Not Found Comment'
         if: |-
           ${{ always() && hashFiles('iam.yaml') == '' }}
