@@ -46,7 +46,7 @@ jobs:
     permissions:
       contents: 'read'
       id-token: 'write'
-    needs: 
+    needs:
       - 'go_test'
     steps:
       - name: 'Checkout'
