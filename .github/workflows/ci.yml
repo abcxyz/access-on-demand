@@ -33,6 +33,7 @@ env:
   WIF_SERVICE_ACCOUNT: 'github-automation-bot@gha-access-on-demand-i-74b940.iam.gserviceaccount.com'
   INTEG_TEST_PROJECT_ID: 'access-on-demand-i-12af76'
   INTEG_TEST_IAM_USER: 'user:aod-test-bot@tycho.joonix.net'
+  TEST_INTEGRATION: 'true'
 
 jobs:
   go_test:
