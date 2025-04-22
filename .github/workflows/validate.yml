@@ -43,10 +43,12 @@ jobs:
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
           ref: '${{ github.event.pull_request.head.ref }}'
+
       - name: 'Setup Go'
         uses: 'actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b' # ratchet:actions/setup-go@v5
         with:
           go-version: '${{ inputs.go_version }}'
+
       - name: 'Setup AOD'
         uses: 'abcxyz/actions/.github/actions/setup-binary@f48a2eb5903426eaaa7f565c6a0655813c7f2868' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
         with:
@@ -55,6 +57,7 @@ jobs:
           cache_key: '${{ runner.os }}_${{ runner.arch }}_aod_${{ inputs.aod_cli_version }}'
           add_to_path: true
           binary_subpath: 'aod'
+
       # IAM request will not be validated when iam.yaml file does not exist,
       # tool request will be not validated when tool.yaml file does not exist.
       - name: 'Validate AOD Request'
@@ -63,12 +66,12 @@ jobs:
           TOOL_FILE_PATH: '${{ github.workspace }}/tool.yaml'
         run: |
           if [ -f "iam.yaml" ]; then
-            aod iam validate -path $IAM_FILE_PATH
+            aod iam validate -path "${IAM_FILE_PATH}"
           else
             echo "::notice title=IAM Request Validation::Skip because iam.yaml is not found"
           fi
           if [ -f "tool.yaml" ]; then
-            aod tool validate -path $TOOL_FILE_PATH
+            aod tool validate -path "${TOOL_FILE_PATH}"
           else
             echo "::notice title=Tool Request Validation::Skip because tool.yaml is not found"
           fi

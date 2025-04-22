@@ -61,7 +61,7 @@ jobs:
         if: |-
           contains(github.event.pull_request.labels.*.name, 'aod-breakglass')
         run: |
-          echo REVIEW_DECISION=BREAKGLASS >> $GITHUB_OUTPUT
+          echo "REVIEW_DECISION=BREAKGLASS" >> "${GITHUB_OUTPUT}"
 
       - id: 'get_review_decision'
         if: |-
@@ -71,8 +71,8 @@ jobs:
           # See ref: https://docs.github.com/en/actions/using-workflows/using-github-cli-in-workflows
           GH_TOKEN: '${{ github.token }}'
         run: |
-          repo=${{ github.repository }}
-          reviewDecision="$(gh api graphql -F owner=${{ github.repository_owner }} -F name=${repo##*/} -F pr_number=${{ github.event.pull_request.number }} -f query='
+          repo="${{ github.repository }}"
+          reviewDecision="$(gh api graphql -F owner="${{ github.repository_owner }}" -F name="${repo##*/}" -F pr_number="${{ github.event.pull_request.number }}" -f query='
             query($name: String!, $owner: String!, $pr_number: Int!) {
               repository(owner: $owner, name: $name) {
                 pullRequest(number: $pr_number) {
@@ -82,7 +82,7 @@ jobs:
             }
           ' --jq '.data.repository.pullRequest.reviewDecision')"
 
-          echo REVIEW_DECISION=$reviewDecision >> $GITHUB_OUTPUT
+          echo "REVIEW_DECISION=${reviewDecision}" >> "${GITHUB_OUTPUT}"
 
   handle:
     # Only handle the request when the PR is already approved by qualified approvers.
@@ -103,6 +103,7 @@ jobs:
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
           ref: '${{ github.event.pull_request.head.ref }}'
+
       # Steps will be skipped starting from here when iam.yaml file does not
       # exist in the case of a pull_request_review event.
       - name: 'Setup Go'
@@ -111,6 +112,7 @@ jobs:
         uses: 'actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b' # ratchet:actions/setup-go@v5
         with:
           go-version: '${{ inputs.go_version }}'
+
       - name: 'Authenticate to Google Cloud'
         if: |-
           ${{ hashFiles('iam.yaml', 'tool.yaml') != '' }}
@@ -119,11 +121,13 @@ jobs:
           workload_identity_provider: '${{ inputs.workload_identity_provider }}'
           service_account: '${{ inputs.service_account }}'
           token_format: 'access_token'
+
       # Install gcloud, `setup-gcloud` automatically picks up authentication from `auth`.
       - name: 'Set up Cloud SDK'
         if: |-
           ${{ hashFiles('tool.yaml') != '' }}
         uses: 'google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a' # ratchet:google-github-actions/setup-gcloud@v2
+
       - name: 'Setup AOD'
         if: |-
           ${{ hashFiles('iam.yaml', 'tool.yaml') != '' }}
@@ -134,6 +138,7 @@ jobs:
           cache_key: '${{ runner.os }}_${{ runner.arch }}_aod_${{ inputs.aod_cli_version }}'
           add_to_path: true
           binary_subpath: 'aod'
+
       - name: 'Setup Tagrep'
         if: |-
           ${{ hashFiles('iam.yaml') != '' }}
@@ -144,6 +149,7 @@ jobs:
           binary_subpath: 'tagrep'
           cache_key: '${{ runner.os }}_${{ runner.arch }}_tagrep_${{ inputs.tagrep_version }}'
           add_to_path: true
+
       # Duration labels need to be prefixed with "duration-", an example is "duration-2h".
       - name: 'Get Duration From Label'
         if: |-
@@ -152,11 +158,12 @@ jobs:
           names='${{ toJson(github.event.pull_request.labels.*.name) }}'
           for name in $(echo "$names" | jq -r '.[]'); do
             if [[ $name == duration-* ]]; then
-              IFS='-' read -r part1 part2 <<< "$name"
-              echo "LABELED_DURATION=$part2" >> $GITHUB_ENV
+              IFS='-' read -r _ part2 <<< "${name}"
+              echo "LABELED_DURATION=$part2" >> "${GITHUB_ENV}"
               break
             fi
           done
+
       - name: 'Tagrep PR vars'
         if: |-
           ${{ hashFiles('iam.yaml') != '' }}
@@ -167,8 +174,9 @@ jobs:
         run: |
           tags="$(tagrep parse -type=request -format=raw 2> tagrep.log)"
           cat tagrep.log
-          echo "tags -> $tags"
-          echo "$tags" >> "$GITHUB_ENV"
+          echo "tags -> ${tags}"
+          echo "$tags" >> "${GITHUB_ENV}"
+
       # Request will not be handled when iam.yaml file is not found.
       - name: 'Handle IAM Request'
         if: |-
@@ -186,6 +194,7 @@ jobs:
           -start-time ${{ env.START_TIME }} \
           2> >(tee ${{ env.IAM_ERROR_FILENAME }} >&2) \
           1> >(tee ${{ env.IAM_OUT_FILENAME }})
+
       # Request will not be handled when tool.yaml file does not exist in the
       # case of a pull_request_review event, instead it prints out a notice.
       - name: 'Handle Tool Request'
@@ -196,6 +205,7 @@ jobs:
           TOOL_FILE_PATH: '${{ github.workspace }}/tool.yaml'
         run: |
           touch ${{ env.TOOL_ERROR_FILENAME }} ${{ env.TOOL_OUT_FILENAME }}
+          # shellcheck disable=SC1010
           aod tool do -path ${{ env.TOOL_FILE_PATH }} \
           2> >(tee ${{ env.TOOL_ERROR_FILENAME }} >&2) \
           1> >(tee ${{ env.TOOL_OUT_FILENAME }})
