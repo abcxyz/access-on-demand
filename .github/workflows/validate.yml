@@ -33,7 +33,7 @@ on:
 
 jobs:
   yaml_lint:
-    uses: 'abcxyz/actions/.github/workflows/yaml-lint.yml@0d3628b4e36a87f4dae37b6a779c46d0995d9af6' # ratchet:exclude
+    uses: 'abcxyz/actions/.github/workflows/yaml-lint.yml@f6b4a8b9931cfcad89e92cda689f548a133428cb' # ratchet:abcxyz/actions/.github/workflows/yaml-lint.yml@main
 
   validate:
     runs-on: 'ubuntu-latest'
@@ -50,7 +50,7 @@ jobs:
           go-version: '${{ inputs.go_version }}'
 
       - name: 'Setup AOD'
-        uses: 'abcxyz/actions/.github/actions/setup-binary@f48a2eb5903426eaaa7f565c6a0655813c7f2868' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
+        uses: 'abcxyz/actions/.github/actions/setup-binary@f6b4a8b9931cfcad89e92cda689f548a133428cb' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/access-on-demand/releases/download/v${{ inputs.aod_cli_version }}/aod_${{ inputs.aod_cli_version }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.aod'
