@@ -131,7 +131,7 @@ jobs:
       - name: 'Setup AOD'
         if: |-
           ${{ hashFiles('iam.yaml', 'tool.yaml') != '' }}
-        uses: 'abcxyz/actions/.github/actions/setup-binary@f48a2eb5903426eaaa7f565c6a0655813c7f2868' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
+        uses: 'abcxyz/actions/.github/actions/setup-binary@f6b4a8b9931cfcad89e92cda689f548a133428cb' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/access-on-demand/releases/download/v${{ inputs.aod_cli_version }}/aod_${{ inputs.aod_cli_version }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.aod'
@@ -142,7 +142,7 @@ jobs:
       - name: 'Setup Tagrep'
         if: |-
           ${{ hashFiles('iam.yaml') != '' }}
-        uses: 'abcxyz/actions/.github/actions/setup-binary@f48a2eb5903426eaaa7f565c6a0655813c7f2868' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
+        uses: 'abcxyz/actions/.github/actions/setup-binary@f6b4a8b9931cfcad89e92cda689f548a133428cb' # ratchet:abcxyz/actions/.github/actions/setup-binary@main
         with:
           download_url: 'https://github.com/abcxyz/tagrep/releases/download/v${{ inputs.tagrep_version }}/tagrep_${{ inputs.tagrep_version }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.tagrep'
