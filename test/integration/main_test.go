@@ -159,7 +159,7 @@ policies:
 
 	// Cleanup/Reset the IAM policy.
 	t.Cleanup(func() {
-		testGetAndResetBindings(context.Background(), t, cfg, true) //nolint:usetesting
+		testGetAndResetBindings(context.Background(), t, cfg, true)
 	})
 
 	_, handleStdout, handleStderr := testPipeAndRun(ctx, t, handleArgs)
