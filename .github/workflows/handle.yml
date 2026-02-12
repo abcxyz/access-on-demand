@@ -102,7 +102,7 @@ jobs:
       - name: 'Checkout Triggering Branch'
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
-          ref: '${{ github.event.pull_request.head.ref }}'
+          ref: '${{ github.event.review.commit_id }}'
 
       # Steps will be skipped starting from here when iam.yaml file does not
       # exist in the case of a pull_request_review event.
