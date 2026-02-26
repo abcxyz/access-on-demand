@@ -82,7 +82,7 @@ func (h *ToolHandler) Do(ctx context.Context, r *v1alpha1.ToolRequest) error {
 			return fmt.Errorf("failed to parse cmd %q: %w", c, err)
 		}
 		toolCmd := fmt.Sprintf("%s %s", tool, strings.Join(args, " "))
-		cmd := exec.Command(tool, args...)
+		cmd := exec.CommandContext(ctx, tool, args...)
 		// If stdout is set, it writes the command output to stdout.
 		if h.stdout != nil {
 			cmd.Stdout = h.stdout

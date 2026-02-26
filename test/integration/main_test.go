@@ -354,7 +354,7 @@ func testWriteReqFile(tb testing.TB, data, fileName string) (filePath string) {
 	if err := os.WriteFile(filePath, []byte(data), 0o600); err != nil {
 		tb.Fatalf("failed to write %s data to file: %v", fileName, err)
 	}
-	return
+	return filePath
 }
 
 // testPipeAndRun creates new unqiue stdin, stdout, and stderr buffers, sets
@@ -373,5 +373,5 @@ func testPipeAndRun(ctx context.Context, tb testing.TB, args []string) (stdin, s
 	if err := c.Run(ctx, args); err != nil {
 		tb.Fatalf("failed to run root command: %v", err)
 	}
-	return
+	return stdin, stdout, stderr
 }

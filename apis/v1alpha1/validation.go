@@ -36,8 +36,7 @@ var (
 // ValidateIAMRequest checks if the IAMRequest is valid.
 func ValidateIAMRequest(r *IAMRequest) (retErr error) {
 	if len(r.ResourcePolicies) == 0 {
-		retErr = fmt.Errorf("policies not found")
-		return
+		return fmt.Errorf("policies not found")
 	}
 	for _, s := range r.ResourcePolicies {
 		// Check if resource type is valid.
@@ -71,7 +70,7 @@ func ValidateIAMRequest(r *IAMRequest) (retErr error) {
 			}
 		}
 	}
-	return
+	return retErr
 }
 
 // ValidateToolRequest checks if the ToolRequest is valid.

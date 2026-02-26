@@ -125,7 +125,7 @@ func (h *IAMHandler) Cleanup(ctx context.Context, r *v1alpha1.IAMRequest) (nps [
 			nps = append(nps, np)
 		}
 	}
-	return
+	return nps, retErr
 }
 
 // Do removes expired or conflicting IAM bindings added by AOD and adds requested IAM bindings to current IAM policy.
@@ -143,7 +143,7 @@ func (h *IAMHandler) Do(ctx context.Context, r *v1alpha1.IAMRequestWrapper) (nps
 			nps = append(nps, np)
 		}
 	}
-	return
+	return nps, retErr
 }
 
 func (h *IAMHandler) handlePolicy(ctx context.Context, p *v1alpha1.ResourcePolicy, expiry time.Time, updateFunc updatePolicy) (*v1alpha1.IAMResponse, error) {
