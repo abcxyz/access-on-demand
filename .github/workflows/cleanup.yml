@@ -140,11 +140,11 @@ jobs:
         env:
           IAM_FILE_PATH: '${{ github.workspace }}/iam.yaml'
         run: |
-          touch ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }}
-          touch ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}
-          aod iam cleanup -path ${{ env.IAM_FILE_PATH }} \
-            2> >(tee ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }} >&2) \
-            1> >(tee ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }})
+          touch "${RUNNER_TEMP}/${IAM_ERROR_FILENAME}"
+          touch "${RUNNER_TEMP}/${IAM_OUT_FILENAME}"
+          aod iam cleanup -path "${IAM_FILE_PATH}" \
+            2> >(tee "${RUNNER_TEMP}/${IAM_ERROR_FILENAME}" >&2) \
+            1> >(tee "${RUNNER_TEMP}/${IAM_OUT_FILENAME}")
 
       - name: 'IAM Request Success Cleanup Comment'
         if: |-
