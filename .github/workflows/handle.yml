@@ -59,38 +59,65 @@ jobs:
     steps:
       - id: 'get_breakglass_decision'
         if: |-
+          github.event.pull_request.state == 'open' &&
           contains(github.event.pull_request.labels.*.name, 'aod-breakglass')
         run: |
           echo "REVIEW_DECISION=BREAKGLASS" >> "${GITHUB_OUTPUT}"
 
       - id: 'get_review_decision'
         if: |-
+          github.event.pull_request.state == 'open' &&
           !contains(github.event.pull_request.labels.*.name, 'aod-breakglass')
         env:
           # Set the GH_TOKEN environment variable to use GitHub CLI in a GitHub Actions workflow.
           # See ref: https://docs.github.com/en/actions/using-workflows/using-github-cli-in-workflows
           GH_TOKEN: '${{ github.token }}'
+          REPO: '${{ github.repository }}'
+          REPO_OWNER: '${{ github.repository_owner }}'
+          PR_NUMBER: '${{ github.event.pull_request.number }}'
+        shell: 'bash'
         run: |
-          repo="${{ github.repository }}"
-          reviewDecision="$(gh api graphql -F owner="${{ github.repository_owner }}" -F name="${repo##*/}" -F pr_number="${{ github.event.pull_request.number }}" -f query='
-            query($name: String!, $owner: String!, $pr_number: Int!) {
-              repository(owner: $owner, name: $name) {
-                pullRequest(number: $pr_number) {
-                  reviewDecision
+          set -euo pipefail
+          if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
+            echo "::warning::Invalid pull request number '${PR_NUMBER}'"
+            echo "REVIEW_DECISION=REVIEW_REQUIRED" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          pr_json="$(gh api graphql \
+            -F owner="${REPO_OWNER}" \
+            -F name="${REPO##*/}" \
+            -F pr_number="${PR_NUMBER}" \
+            -f query='
+              query($name: String!, $owner: String!, $pr_number: Int!) {
+                repository(owner: $owner, name: $name) {
+                  pullRequest(number: $pr_number) {
+                    state
+                    reviewDecision
+                  }
                 }
               }
-            }
-          ' --jq '.data.repository.pullRequest.reviewDecision')"
+            ')"
 
-          echo "REVIEW_DECISION=${reviewDecision}" >> "${GITHUB_OUTPUT}"
+          pr_state="$(printf '%s' "${pr_json}" | jq -r '.data.repository.pullRequest.state // ""')"
+          if [[ "${pr_state}" != "OPEN" ]]; then
+            echo "::warning::Refusing to handle non-open pull request #${PR_NUMBER} (state=${pr_state})"
+            echo "REVIEW_DECISION=CLOSED" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          review_decision="$(printf '%s' "${pr_json}" | jq -r '.data.repository.pullRequest.reviewDecision // ""')"
+          echo "REVIEW_DECISION=${review_decision}" >> "${GITHUB_OUTPUT}"
 
   handle:
-    # Only handle the request when the PR is already approved by qualified approvers.
+    # Only handle the request when the PR is open and approved by qualified approvers.
     needs: 'review_status'
     if: |-
       ${{
-        needs.review_status.outputs.REVIEW_DECISION == 'BREAKGLASS' ||
-        (needs.review_status.outputs.REVIEW_DECISION == 'APPROVED' && github.event.review.state == 'approved')
+        github.event.pull_request.state == 'open' && (
+          needs.review_status.outputs.REVIEW_DECISION == 'BREAKGLASS' ||
+          (needs.review_status.outputs.REVIEW_DECISION == 'APPROVED' && github.event.review.state == 'approved')
+        )
       }}
     runs-on: 'ubuntu-latest'
     permissions:
@@ -99,6 +126,26 @@ jobs:
       pull-requests: 'write'
     name: 'Handle Request'
     steps:
+      - name: 'Validate inputs'
+        shell: 'bash'
+        env:
+          AOD_CLI_VERSION: '${{ inputs.aod_cli_version }}'
+          TAGREP_VERSION: '${{ inputs.tagrep_version }}'
+          GO_VERSION: '${{ inputs.go_version }}'
+        run: |
+          if [[ ! "${AOD_CLI_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+)*$ ]]; then
+            echo "::error::Invalid aod_cli_version '${AOD_CLI_VERSION}'"
+            exit 1
+          fi
+          if [[ ! "${TAGREP_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+)*$ ]]; then
+            echo "::error::Invalid tagrep_version '${TAGREP_VERSION}'"
+            exit 1
+          fi
+          if [[ ! "${GO_VERSION}" =~ ^[0-9]+\.[0-9]+(\.[0-9x]+)?$ ]]; then
+            echo "::error::Invalid go_version '${GO_VERSION}'"
+            exit 1
+          fi
+
       - name: 'Checkout Triggering Branch'
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
@@ -135,7 +182,12 @@ jobs:
         with:
           download_url: 'https://github.com/abcxyz/access-on-demand/releases/download/v${{ inputs.aod_cli_version }}/aod_${{ inputs.aod_cli_version }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.aod'
-          cache_key: '${{ runner.os }}_${{ runner.arch }}_aod_${{ inputs.aod_cli_version }}'
+          # SECURITY: Do NOT cache this binary. The Actions cache for a PR ref
+          # is writable by unapproved `pull_request` runs and is restored here
+          # *after* WIF authentication without any integrity check, allowing a
+          # poisoned `aod` to execute with the IAM-admin access token. The
+          # release tarball is small; always download fresh.
+          cache_key: ''
           add_to_path: true
           binary_subpath: 'aod'
 
@@ -147,22 +199,31 @@ jobs:
           download_url: 'https://github.com/abcxyz/tagrep/releases/download/v${{ inputs.tagrep_version }}/tagrep_${{ inputs.tagrep_version }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.tagrep'
           binary_subpath: 'tagrep'
-          cache_key: '${{ runner.os }}_${{ runner.arch }}_tagrep_${{ inputs.tagrep_version }}'
+          # SECURITY: Do NOT cache this binary; see the note on `Setup AOD`
+          # above. `tagrep` also runs after WIF auth with the access token in
+          # the environment.
+          cache_key: ''
           add_to_path: true
 
       # Duration labels need to be prefixed with "duration-", an example is "duration-2h".
       - name: 'Get Duration From Label'
         if: |-
           ${{ hashFiles('iam.yaml') != '' }}
+        shell: 'bash'
+        env:
+          LABEL_NAMES: '${{ toJson(github.event.pull_request.labels.*.name) }}'
         run: |
-          names='${{ toJson(github.event.pull_request.labels.*.name) }}'
-          for name in $(echo "$names" | jq -r '.[]'); do
-            if [[ $name == duration-* ]]; then
-              IFS='-' read -r _ part2 <<< "${name}"
-              echo "LABELED_DURATION=$part2" >> "${GITHUB_ENV}"
+          while IFS= read -r name; do
+            if [[ "${name}" == duration-* ]]; then
+              part2="${name#duration-}"
+              if [[ "${part2}" =~ ^([0-9]+(\.[0-9]+)?(ns|us|ms|s|m|h))+$ ]]; then
+                echo "LABELED_DURATION=${part2}" >> "${GITHUB_ENV}"
+              else
+                echo "::warning::Ignoring invalid duration label '${name}'"
+              fi
               break
             fi
-          done
+          done < <(printf '%s' "${LABEL_NAMES}" | jq -r '.[]')
 
       - name: 'Tagrep PR vars'
         if: |-
@@ -175,7 +236,14 @@ jobs:
           tags="$(tagrep parse -type=request -format=raw 2> tagrep.log)"
           cat tagrep.log
           echo "tags -> ${tags}"
-          echo "$tags" >> "${GITHUB_ENV}"
+          # Only accept the AOD_DURATION key and only when its value is a valid
+          # Go duration (e.g. "2h", "30m", "1h30m"); reject anything else so that
+          # arbitrary tagrep output cannot set unrelated env vars or carry
+          # shell metacharacters into later steps.
+          aod_duration="$(printf '%s\n' "${tags}" | grep -E '^AOD_DURATION=' | head -n 1 | cut -d= -f2- | grep -E '^([0-9]+(\.[0-9]+)?(ns|us|ms|s|m|h))+$' || true)"
+          if [[ -n "${aod_duration}" ]]; then
+            echo "AOD_DURATION=${aod_duration}" >> "${GITHUB_ENV}"
+          fi
 
       # Request will not be handled when iam.yaml file is not found.
       - name: 'Handle IAM Request'
@@ -187,13 +255,13 @@ jobs:
           IAM_FILE_PATH: '${{ github.workspace }}/iam.yaml'
           START_TIME: '${{ github.event.review.submitted_at || github.event.pull_request.updated_at }}'
         run: |
-          touch ${{ env.IAM_ERROR_FILENAME }} ${{ env.IAM_OUT_FILENAME }}
+          touch "${IAM_ERROR_FILENAME}" "${IAM_OUT_FILENAME}"
           aod iam handle \
-          -path ${{ env.IAM_FILE_PATH }} \
-          -duration ${{ env.DURATION }} \
-          -start-time ${{ env.START_TIME }} \
-          2> >(tee ${{ env.IAM_ERROR_FILENAME }} >&2) \
-          1> >(tee ${{ env.IAM_OUT_FILENAME }})
+            -path "${IAM_FILE_PATH}" \
+            -duration "${DURATION}" \
+            -start-time "${START_TIME}" \
+            2> >(tee "${IAM_ERROR_FILENAME}" >&2) \
+            1> >(tee "${IAM_OUT_FILENAME}")
 
       # Request will not be handled when tool.yaml file does not exist in the
       # case of a pull_request_review event, instead it prints out a notice.
@@ -204,11 +272,11 @@ jobs:
         env:
           TOOL_FILE_PATH: '${{ github.workspace }}/tool.yaml'
         run: |
-          touch ${{ env.TOOL_ERROR_FILENAME }} ${{ env.TOOL_OUT_FILENAME }}
+          touch "${TOOL_ERROR_FILENAME}" "${TOOL_OUT_FILENAME}"
           # shellcheck disable=SC1010
-          aod tool do -path ${{ env.TOOL_FILE_PATH }} \
-          2> >(tee ${{ env.TOOL_ERROR_FILENAME }} >&2) \
-          1> >(tee ${{ env.TOOL_OUT_FILENAME }})
+          aod tool do -path "${TOOL_FILE_PATH}" \
+            2> >(tee "${TOOL_ERROR_FILENAME}" >&2) \
+            1> >(tee "${TOOL_OUT_FILENAME}")
 
       - name: 'IAM Request Comment'
         if: |-
@@ -216,25 +284,27 @@ jobs:
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
         env:
           DURATION: '${{ env.AOD_DURATION || env.LABELED_DURATION || env.DEFAULT_DURATION }}'
+          OUTCOME: '${{ steps.handle_iam.outcome }}'
+          PR_NUMBER: '${{ github.event.pull_request.number }}'
         with:
           github-token: '${{ github.token }}'
           retries: '3'
           script: |+
             var body, req;
             const fs = require("fs");
-            const outcome = '${{ steps.handle_iam.outcome }}';
+            const outcome = process.env.OUTCOME;
             switch (outcome) {
               case 'success':
                 req = fs.readFileSync(
-                  `${{ env.IAM_OUT_FILENAME }}`,
+                  process.env.IAM_OUT_FILENAME,
                   { encoding: "utf8" }
                 );
 
-              body = `**\`Access on Demand\`** - 🟩 **\`IAM\`** request succeeded.
+                body = `**\`Access on Demand\`** - 🟩 **\`IAM\`** request succeeded.
 
             <details>
             <summary>Details</summary>
-            Added below IAM permissions, and they will be expired in ${{ env.DURATION }}.
+            Added below IAM permissions, and they will be expired in ${process.env.DURATION}.
 
             \`\`\`
             ${req}
@@ -243,11 +313,11 @@ jobs:
                 break;
               case 'failure':
                 req = fs.readFileSync(
-                  `${{ env.IAM_OUT_FILENAME }}`,
+                  process.env.IAM_OUT_FILENAME,
                   { encoding: "utf8" }
                 );
                 const error = fs.readFileSync(
-                  `${{ env.IAM_ERROR_FILENAME }}`,
+                  process.env.IAM_ERROR_FILENAME,
                   { encoding: "utf8" }
                 );
                 body = `**\`Access on Demand\`** - 🟥 **\`IAM\`** request failed.
@@ -276,7 +346,7 @@ jobs:
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: ${{ github.event.pull_request.number }},
+                issue_number: Number(process.env.PR_NUMBER),
                 body: body,
               });
             }
@@ -285,21 +355,24 @@ jobs:
         if: |-
           ${{ always() && hashFiles('tool.yaml') != '' }}
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        env:
+          OUTCOME: '${{ steps.handle_tool.outcome }}'
+          PR_NUMBER: '${{ github.event.pull_request.number }}'
         with:
           github-token: '${{ github.token }}'
           retries: '3'
           script: |+
             var body, req;
             const fs = require("fs");
-            const outcome = '${{ steps.handle_tool.outcome }}';
+            const outcome = process.env.OUTCOME;
             switch (outcome) {
               case 'success':
                 req = fs.readFileSync(
-                  `${{ env.TOOL_OUT_FILENAME }}`,
+                  process.env.TOOL_OUT_FILENAME,
                   { encoding: "utf8" }
                 );
 
-              body = `**\`Access on Demand\`** - 🟩 **\`Tool\`** request succeeded.
+                body = `**\`Access on Demand\`** - 🟩 **\`Tool\`** request succeeded.
 
             <details>
             <summary>Details</summary>
@@ -312,11 +385,11 @@ jobs:
                 break;
               case 'failure':
                 req = fs.readFileSync(
-                  `${{ env.TOOL_OUT_FILENAME }}`,
+                  process.env.TOOL_OUT_FILENAME,
                   { encoding: "utf8" }
                 );
                 const error = fs.readFileSync(
-                  `${{ env.TOOL_ERROR_FILENAME }}`,
+                  process.env.TOOL_ERROR_FILENAME,
                   { encoding: "utf8" }
                 );
                 body = `**\`Access on Demand\`** - 🟥 **\`Tool\`** request failed.
@@ -345,7 +418,7 @@ jobs:
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: ${{ github.event.pull_request.number }},
+                issue_number: Number(process.env.PR_NUMBER),
                 body: body,
               });
             }
@@ -354,6 +427,8 @@ jobs:
         if: |-
           ${{ always() && hashFiles('iam.yaml', 'tool.yaml') == '' }}
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        env:
+          PR_NUMBER: '${{ github.event.pull_request.number }}'
         with:
           github-token: '${{ github.token }}'
           retries: '3'
@@ -361,7 +436,7 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: ${{ github.event.pull_request.number }},
+              issue_number: Number(process.env.PR_NUMBER),
               body: `**\`Access on Demand\`** - 🟦 request not found.
             - To require IAM permission on demand, add an **\`iam.yaml\`** file at repo root.
             - To run tool commands on demand, add an **\`tool.yaml\`** file at repo root.`,

@@ -43,6 +43,11 @@ on:
         description: 'The branch of the pull request.'
         type: 'string'
         required: true
+      ref_sha:
+        description: 'The exact commit SHA that was approved on the pull request. Used to verify and pin checkout so a push to the branch after approval cannot change what is cleaned up.'
+        type: 'string'
+        default: ''
+        required: false
 
 env:
   IAM_ERROR_FILENAME: 'iam_error.txt'
@@ -56,44 +61,136 @@ jobs:
       pull-requests: 'read'
     outputs:
       REVIEW_DECISION: '${{ steps.get_review_decision.outputs.REVIEW_DECISION }}'
+      PR_NUMBER: '${{ steps.get_review_decision.outputs.PR_NUMBER }}'
+      HEAD_SHA: '${{ steps.get_review_decision.outputs.HEAD_SHA }}'
+      HEAD_REF: '${{ steps.get_review_decision.outputs.HEAD_REF }}'
     steps:
       - id: 'get_review_decision'
         env:
           # Set the GH_TOKEN environment variable to use GitHub CLI in a GitHub Actions workflow.
           # See ref: https://docs.github.com/en/actions/using-workflows/using-github-cli-in-workflows
           GH_TOKEN: '${{ github.token }}'
+          REPO: '${{ github.repository }}'
+          REPO_OWNER: '${{ github.repository_owner }}'
+          EVENT_NAME: '${{ github.event_name }}'
+          EVENT_ACTION: '${{ github.event.action }}'
+          GITHUB_REF_FULL: '${{ github.ref }}'
+          DEFAULT_BRANCH: '${{ github.event.repository.default_branch }}'
+          EVENT_PR_NUMBER: '${{ github.event.pull_request.number }}'
+          INPUT_PR_NUMBER: '${{ inputs.pr_number }}'
+          INPUT_REF_SHA: '${{ inputs.ref_sha }}'
         shell: 'bash'
         run: |
-          repo="${{ github.repository }}"
-          labelExists="$(gh api \
+          set -euo pipefail
+
+          # Do NOT trust inputs.pr_number for the authorization check. The WIF
+          # provider's job_workflow_ref attribute condition only proves that
+          # *this* reusable file is executing -- it says nothing about the
+          # caller workflow that invoked it, so a collaborator with `write`
+          # could invoke this workflow with a forged `pr_number` pointing at a
+          # historically approved PR (confused deputy). Instead:
+          #   * pull_request:closed callers: use github.event.pull_request.number,
+          #     which GitHub sets and the caller cannot spoof.
+          #   * schedule / workflow_dispatch callers (the expire path): there
+          #     is no pull_request in the event payload, so inputs.pr_number
+          #     must be honoured -- but ONLY when the caller is running on the
+          #     repository's default branch, where the caller workflow itself
+          #     is subject to branch protection and CODEOWNER review.
+          # Any other caller shape is refused without consulting GitHub.
+          if [[ -n "${EVENT_PR_NUMBER}" ]]; then
+            if [[ "${EVENT_NAME}" != "pull_request" ]] || [[ -n "${EVENT_ACTION}" && "${EVENT_ACTION}" != "closed" ]]; then
+              echo "::warning::aod-cleanup invoked via ${EVENT_NAME} (${EVENT_ACTION}); expected pull_request:closed"
+              echo "REVIEW_DECISION=REVIEW_REQUIRED" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+            pr_number="${EVENT_PR_NUMBER}"
+          else
+            case "${EVENT_NAME}" in
+              schedule|workflow_dispatch)
+                if [[ -z "${DEFAULT_BRANCH}" || "${GITHUB_REF_FULL}" != "refs/heads/${DEFAULT_BRANCH}" ]]; then
+                  echo "::warning::aod-cleanup invoked via ${EVENT_NAME} on ${GITHUB_REF_FULL} (not refs/heads/${DEFAULT_BRANCH}); refusing caller-supplied pr_number"
+                  echo "REVIEW_DECISION=REVIEW_REQUIRED" >> "${GITHUB_OUTPUT}"
+                  exit 0
+                fi
+                ;;
+              *)
+                echo "::warning::aod-cleanup invoked via ${EVENT_NAME} without a pull_request event payload; refusing caller-supplied pr_number"
+                echo "REVIEW_DECISION=REVIEW_REQUIRED" >> "${GITHUB_OUTPUT}"
+                exit 0
+                ;;
+            esac
+            pr_number="${INPUT_PR_NUMBER}"
+          fi
+
+          if [[ ! "${pr_number}" =~ ^[0-9]+$ ]]; then
+            echo "::warning::aod-cleanup resolved invalid pr_number '${pr_number}'; refusing"
+            echo "REVIEW_DECISION=REVIEW_REQUIRED" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          # Query authoritative PR state (reviewDecision, frozen headRefOid, and
+          # headRefName) directly from GitHub for the verified pr_number so that
+          # neither checkout nor delete_branch relies on caller-controlled refs.
+          pr_json="$(gh api graphql \
+            -F owner="${REPO_OWNER}" \
+            -F name="${REPO##*/}" \
+            -F pr_number="${pr_number}" \
+            -f query='
+              query($name: String!, $owner: String!, $pr_number: Int!) {
+                repository(owner: $owner, name: $name) {
+                  pullRequest(number: $pr_number) {
+                    reviewDecision
+                    headRefOid
+                    headRefName
+                  }
+                }
+              }
+            ')"
+
+          review_decision="$(printf '%s' "${pr_json}" | jq -r '.data.repository.pullRequest.reviewDecision // ""')"
+          head_sha="$(printf '%s' "${pr_json}" | jq -r '.data.repository.pullRequest.headRefOid // ""')"
+          head_ref="$(printf '%s' "${pr_json}" | jq -r '.data.repository.pullRequest.headRefName // ""')"
+
+          if [[ ! "${head_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::warning::aod-cleanup could not resolve a valid head commit SHA for PR #${pr_number}; refusing"
+            echo "REVIEW_DECISION=REVIEW_REQUIRED" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ -n "${INPUT_REF_SHA}" && "${INPUT_REF_SHA}" != "${head_sha}" ]]; then
+            echo "::warning::aod-cleanup caller ref_sha '${INPUT_REF_SHA}' does not match PR #${pr_number} head SHA '${head_sha}'; refusing"
+            echo "REVIEW_DECISION=REVIEW_REQUIRED" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "PR_NUMBER=${pr_number}" >> "${GITHUB_OUTPUT}"
+          echo "HEAD_SHA=${head_sha}" >> "${GITHUB_OUTPUT}"
+          if [[ -n "${head_ref}" && "${head_ref}" != "${DEFAULT_BRANCH}" && "${head_ref}" != *$'\n'* ]]; then
+            echo "HEAD_REF=${head_ref}" >> "${GITHUB_OUTPUT}"
+          fi
+
+          label_exists="$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/$repo/pulls/${{ inputs.pr_number }} \
+            "/repos/${REPO}/pulls/${pr_number}" \
             --jq '.labels[] | select(.name == "aod-breakglass") | .name')"
 
           # if the breakglass label exists, return with BREAKGLASS decision
-          if [[ -n "${labelExists}" ]]; then
+          if [[ -n "${label_exists}" ]]; then
             echo "REVIEW_DECISION=BREAKGLASS" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
 
-          reviewDecision="$(gh api graphql -F owner="${{ github.repository_owner }}" -F name="${repo##*/}" -F pr_number="${{ inputs.pr_number }}" -f query='
-            query($name: String!, $owner: String!, $pr_number: Int!) {
-              repository(owner: $owner, name: $name) {
-                pullRequest(number: $pr_number) {
-                  reviewDecision
-                }
-              }
-            }
-          ' --jq '.data.repository.pullRequest.reviewDecision')"
-
-          echo "REVIEW_DECISION=${reviewDecision}" >> "${GITHUB_OUTPUT}"
+          echo "REVIEW_DECISION=${review_decision}" >> "${GITHUB_OUTPUT}"
 
   # Run IAM request cleanup when the pull request is approved.
   cleanup:
     needs: 'review_status'
     if: |-
-      ${{ contains(fromJSON('["BREAKGLASS", "APPROVED"]'), needs.review_status.outputs.REVIEW_DECISION) }}
+      ${{
+        contains(fromJSON('["BREAKGLASS", "APPROVED"]'), needs.review_status.outputs.REVIEW_DECISION) &&
+        needs.review_status.outputs.HEAD_SHA != ''
+      }}
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -101,10 +198,25 @@ jobs:
       pull-requests: 'write'
     name: 'Handle AOD IAM Request Cleanup'
     steps:
+      - name: 'Validate inputs'
+        shell: 'bash'
+        env:
+          AOD_CLI_VERSION: '${{ inputs.aod_cli_version }}'
+          GO_VERSION: '${{ inputs.go_version }}'
+        run: |
+          if [[ ! "${AOD_CLI_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+)*$ ]]; then
+            echo "::error::Invalid aod_cli_version '${AOD_CLI_VERSION}'"
+            exit 1
+          fi
+          if [[ ! "${GO_VERSION}" =~ ^[0-9]+\.[0-9]+(\.[0-9x]+)?$ ]]; then
+            echo "::error::Invalid go_version '${GO_VERSION}'"
+            exit 1
+          fi
+
       - name: 'Checkout Triggering Branch'
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
         with:
-          ref: '${{ inputs.branch }}'
+          ref: '${{ needs.review_status.outputs.HEAD_SHA }}'
 
       - name: 'Setup Go'
         if: |-
@@ -129,7 +241,12 @@ jobs:
         with:
           download_url: 'https://github.com/abcxyz/access-on-demand/releases/download/v${{ inputs.aod_cli_version }}/aod_${{ inputs.aod_cli_version }}_linux_amd64.tar.gz'
           install_path: '${{ runner.temp }}/.aod'
-          cache_key: '${{ runner.os }}_${{ runner.arch }}_aod_${{ inputs.aod_cli_version }}'
+          # SECURITY: Do NOT cache this binary. The Actions cache for a PR ref
+          # is writable by unapproved `pull_request` runs and is restored here
+          # *after* WIF authentication without any integrity check, allowing a
+          # poisoned `aod` to execute with the IAM-admin access token. The
+          # release tarball is small; always download fresh.
+          cache_key: ''
           add_to_path: true
           binary_subpath: 'aod'
 
@@ -140,23 +257,26 @@ jobs:
         env:
           IAM_FILE_PATH: '${{ github.workspace }}/iam.yaml'
         run: |
-          touch ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }}
-          touch ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}
-          aod iam cleanup -path ${{ env.IAM_FILE_PATH }} \
-            2> >(tee ${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }} >&2) \
-            1> >(tee ${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }})
+          touch "${RUNNER_TEMP}/${IAM_ERROR_FILENAME}"
+          touch "${RUNNER_TEMP}/${IAM_OUT_FILENAME}"
+          aod iam cleanup -path "${IAM_FILE_PATH}" \
+            2> >(tee "${RUNNER_TEMP}/${IAM_ERROR_FILENAME}" >&2) \
+            1> >(tee "${RUNNER_TEMP}/${IAM_OUT_FILENAME}")
 
       - name: 'IAM Request Success Cleanup Comment'
         if: |-
           ${{ always() && steps.cleanup_iam.outcome == 'success' }}
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        env:
+          PR_NUMBER: '${{ needs.review_status.outputs.PR_NUMBER }}'
         with:
           github-token: '${{ github.token }}'
           retries: '3'
           script: |
             const fs = require("fs");
+            const path = require("path");
 
-            const iamOutFilename = "${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}";
+            const iamOutFilename = path.join(process.env.RUNNER_TEMP, process.env.IAM_OUT_FILENAME);
             const req = fs.readFileSync(iamOutFilename, { encoding: "utf8" });
 
             const body = `**\`Access on Demand\`** - 🟩 **\`IAM\`** request cleanup succeeded.
@@ -173,7 +293,7 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: "${{ inputs.pr_number }}",
+              issue_number: Number(process.env.PR_NUMBER),
               body: body,
             });
 
@@ -181,14 +301,17 @@ jobs:
         if: |-
           ${{ always() && steps.cleanup_iam.outcome == 'failure' }}
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        env:
+          PR_NUMBER: '${{ needs.review_status.outputs.PR_NUMBER }}'
         with:
           github-token: '${{ github.token }}'
           retries: '3'
           script: |
             const fs = require("fs");
+            const path = require("path");
 
-            const iamOutFilename = "${{ runner.temp }}/${{ env.IAM_OUT_FILENAME }}";
-            const iamErrFilename = "${{ runner.temp }}/${{ env.IAM_ERROR_FILENAME }}";
+            const iamOutFilename = path.join(process.env.RUNNER_TEMP, process.env.IAM_OUT_FILENAME);
+            const iamErrFilename = path.join(process.env.RUNNER_TEMP, process.env.IAM_ERROR_FILENAME);
 
             const req = fs.readFileSync(iamOutFilename, { encoding: "utf8" });
             const error = fs.readFileSync(iamErrFilename, { encoding: "utf8" });
@@ -212,7 +335,7 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: "${{ inputs.pr_number }}",
+              issue_number: Number(process.env.PR_NUMBER),
               body: body,
             });
 
@@ -220,6 +343,8 @@ jobs:
         if: |-
           ${{ always() && hashFiles('iam.yaml') == '' }}
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        env:
+          PR_NUMBER: '${{ needs.review_status.outputs.PR_NUMBER }}'
         with:
           github-token: '${{ github.token }}'
           retries: '3'
@@ -227,14 +352,23 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: ${{ inputs.pr_number }},
+              issue_number: Number(process.env.PR_NUMBER),
               body: `**\`Access on Demand\`** - 🟦 **\`IAM\`** request not found, skip cleanup.`,
             });
 
   delete_branch:
-    needs: 'cleanup'
-    # Delete branch after cleanup no matter if cleanup was skipped, succeeded or failed.
-    if: '${{ always() }}'
+    needs:
+      - 'review_status'
+      - 'cleanup'
+    # Delete branch after cleanup no matter if cleanup was skipped, succeeded or failed,
+    # but only when review_status resolved a valid non-default PR branch.
+    if: |-
+      ${{
+        always() &&
+        needs.review_status.result == 'success' &&
+        needs.review_status.outputs.HEAD_REF != '' &&
+        needs.review_status.outputs.HEAD_REF != github.event.repository.default_branch
+      }}
     runs-on: 'ubuntu-latest'
     permissions:
       # Required for closing a branch, see ref: https://docs.github.com/en/rest/overview/permissions-required-for-github-apps?apiVersion=2022-11-28#repository-permissions-for-contents
@@ -242,6 +376,8 @@ jobs:
     name: 'Delete Branch'
     steps:
       - uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        env:
+          BRANCH: '${{ needs.review_status.outputs.HEAD_REF }}'
         with:
           github-token: '${{ github.token }}'
           retries: '3'
@@ -249,5 +385,5 @@ jobs:
             await github.rest.git.deleteRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: `heads/${{ inputs.branch }}`,
+              ref: `heads/${process.env.BRANCH}`,
             });

@@ -44,19 +44,29 @@ jobs:
     steps:
       - id: 'expire_pr'
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        env:
+          INPUT_REPO: '${{ inputs.repo }}'
+          EXPIRY_HOURS: '${{ inputs.expiry_hours }}'
         with:
           # Token required for authentication when getting a branch, see
           # JavaScript example in ref: https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#get-a-reference
           github-token: '${{ github.token }}'
           retries: 3
           script: |-
-            const parts = String('${{ inputs.repo }}').split('/')
-            if (parts.length != 2) {
-              core.setFailed(`Input repo "${{ inputs.repo }}" is not in the right format "<owner>/<name>"`);
+            const inputRepo = process.env.INPUT_REPO || '';
+            const parts = inputRepo.split('/');
+            if (parts.length !== 2 || !parts[0] || !parts[1]) {
+              core.setFailed(`Input repo "${inputRepo}" is not in the right format "<owner>/<name>"`);
+              return [];
             }
-            const repoOwner = parts[0]
-            const repoName = parts[1]
-            const cutoffMs = ${{ inputs.expiry_hours }} * 60 * 60 * 1000
+            const repoOwner = parts[0];
+            const repoName = parts[1];
+            const expiryHours = Number(process.env.EXPIRY_HOURS);
+            if (!Number.isFinite(expiryHours) || expiryHours <= 0) {
+              core.setFailed(`Input expiry_hours "${process.env.EXPIRY_HOURS}" must be a positive number`);
+              return [];
+            }
+            const cutoffMs = expiryHours * 60 * 60 * 1000;
             const now = new Date();
             const pulls = await github.rest.pulls.list({
               owner: repoOwner,
@@ -66,7 +76,7 @@ jobs:
             });
 
             if (!pulls) {
-              return;
+              return [];
             }
 
             core.info(`Found ${pulls.data.length} pulls`);
@@ -114,10 +124,10 @@ jobs:
                   owner: repoOwner,
                   repo: repoName,
                   issue_number: pull['number'],
-                  body: `**\`Access on Demand\`** - request closed and branch deleted due to inactivity (no new commit) for at least ${{ inputs.expiry_hours }} hours`,
+                  body: `**\`Access on Demand\`** - request closed and branch deleted due to inactivity (no new commit) for at least ${expiryHours} hours`,
                 });
 
-                expiredPulls.push({pullNumber: pull['number'], pullBranch: pull['head']['ref']})
+                expiredPulls.push({pullNumber: pull['number'], pullBranch: pull['head']['ref'], pullSha: pull['head']['sha']})
               } else {
                 core.info(`Skipping #${pull['number']} (${pull['title']}) - not an AOD request`);
               }

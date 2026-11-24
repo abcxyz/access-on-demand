@@ -37,7 +37,7 @@ env:
 
 jobs:
   go_test:
-    uses: 'abcxyz/actions/.github/workflows/go-test.yml@main' # ratchet:exclude
+    uses: 'abcxyz/actions/.github/workflows/go-test.yml@4754ac050d18ff96ab5f5e8f44a7ed3d3f3766f3' # ratchet:abcxyz/actions/.github/workflows/go-test.yml@main
     with:
       go_version: '1.21'
 
@@ -70,8 +70,8 @@ jobs:
 
       - name: 'Set Condition Title'
         run: |
-          run_id="${{ github.run_id }}"
-          ref="$(echo "${{ github.ref_name }}" | cut -b 1-20)"
+          run_id="${GITHUB_RUN_ID}"
+          ref="$(printf '%s' "${GITHUB_REF_NAME}" | cut -b 1-20)"
           echo "INTEG_TEST_CONDITION_TITLE=ci-expiry-${ref}-${run_id: -6}" >> "${GITHUB_ENV}"
 
       - name: 'Run tests'

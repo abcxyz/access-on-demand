@@ -51,6 +51,8 @@ jobs:
         if: |-
           github.event_name == 'pull_request' && github.event.action == 'opened'
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        env:
+          PR_NUMBER: '${{ github.event.pull_request.number }}'
         with:
           github-token: '${{ github.token }}'
           retries: '3'
@@ -58,14 +60,16 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: ${{ github.event.pull_request.number }},
-              body: `${{ env.AOD_NOTE }}`,
+              issue_number: Number(process.env.PR_NUMBER),
+              body: process.env.AOD_NOTE,
             });
 
       - name: 'Add AOD Breakglass Note'
         if: |-
           contains(github.event.pull_request.labels.*.name, 'aod-breakglass')
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
+        env:
+          PR_NUMBER: '${{ github.event.pull_request.number }}'
         with:
           github-token: '${{ github.token }}'
           retries: '3'
@@ -73,6 +77,6 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: ${{ github.event.pull_request.number }},
-              body: `${{ env.AOD_BREAKGLASS_NOTE }}`,
+              issue_number: Number(process.env.PR_NUMBER),
+              body: process.env.AOD_BREAKGLASS_NOTE,
             });
